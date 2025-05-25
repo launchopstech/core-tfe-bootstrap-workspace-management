@@ -14,6 +14,7 @@ crash.log
 
 # Terraform lock file (optional, but often ignored in teams)
 .terraform.lock.hcl
+.terraform.tfstate.lock.info  
 
 # Local override files
 override.tf
