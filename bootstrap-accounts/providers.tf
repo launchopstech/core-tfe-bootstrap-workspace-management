@@ -1,6 +1,6 @@
 provider "vault" {
   alias = "infra-prod"
-  address = "http://localhost:8200/ui/vault/secrets"
+  address = "http://localhost:8200"
   auth_login {
     path = "auth/approle/login"
     parameters = {
