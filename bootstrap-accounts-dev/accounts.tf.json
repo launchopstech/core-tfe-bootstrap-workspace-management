@@ -1,0 +1,11 @@
+{
+  "locals": {
+    "accounts": {
+      "889851937279": {
+        "account_name": "test.dev",
+        "env": "dev",
+        "product_name": "test_product"
+      }
+    }
+  }
+}

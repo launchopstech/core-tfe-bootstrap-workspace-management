@@ -1,0 +1,3 @@
+TFE_TOKEN              = "fvyEROsplGUeIw.atlasv1.8wDJ4jyBbeuzAZt8JSKUTIzk6WLRaKrx8mvDhLp7hkUYMfhFWiLiSQyRrzW48zFz03I"
+vault_approle_role_id  = "96470fc9-1443-cabc-eb05-06224eaec38b"
+vault_approle_secret_id = "4b6a114f-fa0f-a9cb-c37c-3cdedfd70089"
