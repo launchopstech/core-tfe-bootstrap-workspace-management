@@ -21,11 +21,13 @@ variable "tfe_prod_admin_token" {
 variable "vault_approle_role_id" {
   description = "This value can be found in vault approle auth."
   type        = string
+  default = "96470fc9-1443-cabc-eb05-06224eaec38b"
 }
 
 variable "vault_approle_secret_id" {
   description = "This value can be found in vault approle auth."
   type        = string
+  default = "a0f76800-d236-625f-87c1-172b31a84a09"
 }  
 
 variable "TFE_TOKEN" {
