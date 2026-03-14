@@ -19,12 +19,6 @@ variable "bootstrap_varsets_workspace_name" {
   default     = "00-bootstrap-account-workspace-management"
 }
 
-variable "project_id_override" {
-  description = "Optional override for the project ID used to create bootstrap account workspaces."
-  type        = string
-  default     = null
-}
-
 variable "environment" {
   description = "Deprecated compatibility input. Ignored by this root module."
   type        = string
