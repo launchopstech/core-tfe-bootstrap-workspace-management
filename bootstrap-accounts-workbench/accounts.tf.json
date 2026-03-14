@@ -1,5 +1,18 @@
 {
   "locals": {
-    "accounts": {}
+    "accounts": {
+      "889851937279": {
+        "client_id": "test-client",
+        "account_name": "test.workbench",
+        "env": "workbench",
+        "product_name": "platform",
+        "region": "us-east-1",
+        "security_tier": "high",
+        "vcs_repo_identifier": "bomatronix/core-tfe-bootstrap-workspace-management",
+        "services": [
+          "bootstrap"
+        ]
+      }
+    }
   }
 }
