@@ -1,6 +1,6 @@
 terraform {
   cloud {
-    hostname = "app.terraform.io"
+    hostname     = "app.terraform.io"
     organization = "core-aws"
     workspaces {
       name = "bootstrap-account-workspace-management-dev"
@@ -8,12 +8,9 @@ terraform {
   }
 
   required_version = ">= 1.0"
-  required_providers  {
+  required_providers {
     tfe = {
       version = "~> 0.49.0"
-    }
-    vault = {
-      version = "~> 3.11.0"
     }
   }
 }

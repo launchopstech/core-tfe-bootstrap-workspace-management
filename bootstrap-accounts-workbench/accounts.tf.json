@@ -1,0 +1,17 @@
+{
+  "locals": {
+    "accounts": {
+      "889851937279": {
+        "client_id": "test-client",
+        "account_name": "test.workbench",
+        "env": "workbench",
+        "product_name": "platform",
+        "region": "us-east-1",
+        "security_tier": "high",
+        "services": [
+          "bootstrap"
+        ]
+      }
+    }
+  }
+}

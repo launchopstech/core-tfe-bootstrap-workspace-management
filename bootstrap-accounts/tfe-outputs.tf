@@ -1,4 +1,4 @@
-data "tfe_outputs" "bootstrap_accounts_varset" {
+data "tfe_outputs" "bootstrap_variable_sets" {
   organization = "core-aws"
-  workspace    = "00-bootstrap-account-workspace-management"
+  workspace    = var.bootstrap_varsets_workspace_name
 }
