@@ -15,6 +15,7 @@ resource "tfe_workspace" "control_plane" {
   name                = each.key
   description         = each.value.description
   organization        = var.organization
+  global_remote_state = each.value.global_remote_state
   execution_mode      = "remote"
   working_directory   = each.value.working_directory
   auto_apply          = false

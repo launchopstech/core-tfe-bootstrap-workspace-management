@@ -7,7 +7,7 @@ variable "organization" {
 variable "terraform_version" {
   description = "Terraform version to pin on created control-plane workspaces."
   type        = string
-  default     = "~> 1.0.0"
+  default     = "1.12.1"
 }
 
 variable "vcs_repo_identifier" {

@@ -1,4 +1,8 @@
-# 🔐 OpenBao Setup Guide for Terraform Bootstrap Project
+# OpenBao Setup Guide for Terraform Bootstrap Project
+
+Deprecated as of the HCP Terraform Phase 1 refactor.
+
+The active control-plane workflow no longer uses OpenBao or Vault. Keep this document only as historical reference for the pre-HCP-Terraform implementation.
 
 This guide documents the step-by-step process to successfully set up OpenBao for the Terraform Cloud bootstrap workspace management system.
 

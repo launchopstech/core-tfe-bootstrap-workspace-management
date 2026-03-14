@@ -1,103 +1,48 @@
-# 🚀 Terraform Bootstrap Project - Quick Start Guide
+# Terraform Bootstrap Project - Quick Start Guide
 
-This guide helps you quickly resume work on the Terraform Cloud bootstrap workspace management project after a gap.
+This guide covers the active HCP Terraform workflow for the bootstrap workspace management project.
 
-## 📋 Pre-Work Checklist
+## Pre-Work Checklist
 
-### 1. **Always Do Terraform Login First**
+### 1. Authenticate to HCP Terraform
+
 ```bash
 terraform login
 ```
-- This opens your browser to generate/refresh your API token
-- Ensures you have valid authentication to Terraform Cloud
-- Required before running any Terraform commands
 
-### 2. **Start OpenBao in Dev Mode**
+This creates or refreshes your credentials for `app.terraform.io`.
+
+### 2. Make sure required sensitive values exist in HCP Terraform
+
+This control plane no longer uses OpenBao or Vault. Shared sensitive values should be managed through HCP Terraform variable sets.
+
+At minimum, confirm the relevant workspaces have the inputs they need for:
+
+- `aws_core_oauth_token_id`
+- any optional control-plane sensitive variables managed by `bootstrap-accounts-varset/`
+
+### 3. Choose the root you want to run
+
+```text
+hcp-bootstrap/               Creates the HCP Terraform control-plane workspaces
+bootstrap-accounts-varset/    Shared HCP Terraform variable sets
+bootstrap-accounts-dev/       Dev bootstrap workspace management
+bootstrap-accounts-workbench/ Workbench bootstrap workspace management
+```
+
+## Typical Workflow
+
+### Control-plane workspaces
+
 ```bash
-openbao server -dev -dev-root-token-id="dev-only-token"
-```
-- **Important:** Dev mode data is NOT persistent
-- All configuration is lost when OpenBao restarts
-- Note the root token from startup logs (usually `dev-only-token`)
-
-### 3. **Set Environment Variables**
-```bash
-export BAO_ADDR='http://127.0.0.1:8200'
-export BAO_TOKEN='dev-only-token'  # Use actual token from startup
-```
-
-### 4. **Recreate OpenBao Configuration** (If OpenBao Restarted)
-```bash
-# Enable AppRole auth
-bao auth enable -path=approle_dev approle
-
-# Create policy
-bao policy write terraform-policy - <<EOF
-path "auth/approle_dev/login" {
-  capabilities = ["create", "read"]
-}
-path "cloud/metadata/*" {
-  capabilities = ["create", "read", "update", "delete", "list"]
-}
-path "auth/token/*" {
-  capabilities = ["create", "read", "update", "delete", "list"]
-}
-EOF
-
-# Create AppRole
-bao write auth/approle_dev/role/my-app-role \
-  token_policies="terraform-policy" \
-  token_ttl=1h \
-  token_max_ttl=4h
-
-# Get fresh credentials
-bao read auth/approle_dev/role/my-app-role/role-id
-bao write -f auth/approle_dev/role/my-app-role/secret-id
-```
-
-### 5. **Fix terraform.tfvars Variable Names**
-**Critical:** Ensure variable names are lowercase:
-```hcl
-tfe_token              = "your-token-from-terraform-login"
-vault_approle_role_id  = "role-id-from-openbao"
-vault_approle_secret_id = "secret-id-from-openbao"
-```
-**NOT:** `TFE_TOKEN` (uppercase) - this won't work!
-
-## 🏗️ Project Structure
-
-```
-core-tfe-bootstrap-workspace-management/
-├── bootstrap-accounts/          # Main Terraform module
-├── bootstrap-accounts-dev/      # Dev environment implementation
-├── bootstrap-accounts-workbench/ # Workbench environment implementation
-├── bootstrap-accounts-varset/   # Variable set management
-├── policy.hcl                  # OpenBao policy file
-├── OpenBao-Setup-Guide.md      # Detailed OpenBao setup
-└── Terraform-Quick-Start.md    # This guide
-```
-
-## 🎯 Working Environments
-
-Choose which environment you want to work on:
-
-### **For Development Environment:**
-```bash
-cd bootstrap-accounts-dev
+cd hcp-bootstrap
 terraform init
 terraform plan
 terraform apply
 ```
 
-### **For Workbench Environment:**
-```bash
-cd bootstrap-accounts-workbench  
-terraform init
-terraform plan
-terraform apply
-```
+### Variable sets
 
-### **For Variable Sets:**
 ```bash
 cd bootstrap-accounts-varset
 terraform init
@@ -105,60 +50,70 @@ terraform plan
 terraform apply
 ```
 
-## ✅ Test Before Running Terraform
+### Development bootstrap workspaces
 
-### **Test OpenBao Authentication:**
 ```bash
-curl --request POST \
-  --data '{"role_id":"YOUR_ROLE_ID","secret_id":"YOUR_SECRET_ID"}' \
-  http://localhost:8200/v1/auth/approle_dev/login
+cd bootstrap-accounts-dev
+terraform init
+terraform plan
+terraform apply
 ```
-Should return JSON with `client_token` field.
 
-### **Test Terraform Cloud Access:**
+### Workbench bootstrap workspaces
+
 ```bash
-curl -H "Authorization: Bearer YOUR_TFE_TOKEN" \
-  https://app.terraform.io/api/v2/organizations/core-aws
+cd bootstrap-accounts-workbench
+terraform init
+terraform plan
+terraform apply
 ```
-Should return organization details.
 
-## 🚨 Common Issues
+## Current Control-Plane Model
+
+This project now manages bootstrap metadata directly in HCP Terraform:
+
+- workspace names follow `bootstrap-<client_id>-<env>-<account_id>`
+- workspace tags include client, environment, security tier, and service family
+- workspace metadata is stored as Terraform variables on each workspace
+- shared defaults are attached through HCP Terraform variable sets
+
+## Account Metadata Shape
+
+Each account entry in `accounts.tf.json` should include:
+
+```json
+{
+  "123456789012": {
+    "client_id": "acme",
+    "account_name": "acme.dev",
+    "env": "dev",
+    "product_name": "platform",
+    "region": "us-east-1",
+    "security_tier": "standard",
+    "services": ["bootstrap"]
+  }
+}
+```
+
+Optional fields:
+
+- `service_family`
+- `workspace_tags`
+- `description`
+- `working_directory`
+- `vcs_repo_identifier`
+
+## Common Issues
 
 | Issue | Solution |
 |-------|----------|
-| `TFE_TOKEN` not recognized | Change to `tfe_token` (lowercase) |
-| "unauthorized" errors | Run `terraform login` again |
-| "permission denied" on OpenBao | Recreate AppRole configuration |
-| "invalid role or secret ID" | Generate fresh OpenBao credentials |
-| "connection refused" to OpenBao | Start OpenBao server |
+| Unauthorized to HCP Terraform | Run `terraform login` again |
+| Variable-set IDs not found | Apply `bootstrap-accounts-varset/` before the environment roots |
+| Missing VCS OAuth token ID | Set `aws_core_oauth_token_id` in the relevant HCP Terraform workspace |
+| Planned workspace replacement after Phase 1 | Expected if old workspace names do not match the new naming convention |
 
-## 📝 What This Project Does
+## Additional Resources
 
-This system automates the creation of Terraform Cloud workspaces for AWS account bootstrapping:
-
-1. **Creates TFE workspaces** for each AWS account
-2. **Stores workspace metadata** in OpenBao
-3. **Configures notifications** for workspace failures
-4. **Manages variable sets** across environments
-5. **Integrates with GitHub** for VCS-driven workflows
-
-## 🔄 Typical Workflow
-
-1. **Start OpenBao** and recreate configuration (if needed)
-2. **Run terraform login** for fresh TFC authentication
-3. **Update terraform.tfvars** with fresh credentials
-4. **Choose environment** (dev, workbench, varset)
-5. **Run terraform plan** to see changes
-6. **Run terraform apply** to create resources
-
----
-
-## 📚 Additional Resources
-
-- [OpenBao-Setup-Guide.md](./OpenBao-Setup-Guide.md) - Detailed OpenBao configuration
-- [Terraform Cloud Docs](https://developer.hashicorp.com/terraform/cloud-docs)
-- [OpenBao Documentation](https://openbao.dev/docs/)
-
----
-
-**Remember:** Always start with `terraform login` and ensure OpenBao is running! 🚀
+- [README.md](./README.md)
+- [Agency-AWS-Terraform-Framework-Spec.md](./Agency-AWS-Terraform-Framework-Spec.md)
+- [Agency-AWS-Terraform-Implementation-TODO.md](./Agency-AWS-Terraform-Implementation-TODO.md)
