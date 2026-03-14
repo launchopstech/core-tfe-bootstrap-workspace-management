@@ -1,18 +1,5 @@
 {
   "locals": {
-    "accounts": {
-      "889851937279": {
-        "client_id": "test-client",
-        "account_name": "test.dev",
-        "env": "dev",
-        "product_name": "platform",
-        "region": "us-east-1",
-        "security_tier": "standard",
-        "vcs_repo_identifier": "bomatronix/core-tfe-bootstrap-workspace-management",
-        "services": [
-          "bootstrap"
-        ]
-      }
-    }
+    "accounts": {}
   }
 }
