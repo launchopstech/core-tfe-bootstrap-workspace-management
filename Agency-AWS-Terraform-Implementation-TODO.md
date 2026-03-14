@@ -26,29 +26,29 @@ Goal: make the current Terraform Cloud workspace factory reusable for multiple c
 
 ### TODO
 
-- [ ] define a standard naming convention for all workspace classes
-- [ ] define tags for `client_id`, `env`, `service_family`, and `security_tier`
-- [ ] extend the current account seed model to include `client_id`, `region`, `security_tier`, and `services`
-- [ ] create a Terraform Cloud project strategy
-- [ ] define shared variable sets by environment and by security tier
-- [ ] remove the `vault` provider and Vault resources from the control-plane code
-- [ ] remove Vault-related variables from modules and environment entrypoints
-- [ ] replace external metadata storage with Terraform Cloud workspace tags, variables, and outputs
-- [ ] document how runtime workspaces differ from bootstrap workspaces
-- [ ] add a README section describing the Terraform Cloud HCL-only control-plane architecture
+- [x] define a standard naming convention for all workspace classes
+- [x] define tags for `client_id`, `env`, `service_family`, and `security_tier`
+- [x] extend the current account seed model to include `client_id`, `region`, `security_tier`, and `services`
+- [x] create a Terraform Cloud project strategy
+- [x] define shared variable sets by environment and by security tier
+- [x] remove the `vault` provider and Vault resources from the control-plane code
+- [x] remove Vault-related variables from modules and environment entrypoints
+- [x] replace external metadata storage with Terraform Cloud workspace tags, variables, and outputs
+- [x] document how runtime workspaces differ from bootstrap workspaces
+- [x] add a README section describing the Terraform Cloud HCL-only control-plane architecture
 
 ### Deliverables
 
-- [ ] updated metadata model for `accounts.tf.json` or generated equivalent
-- [ ] workspace naming standard
-- [ ] variable-set attachment model
-- [ ] refactored control-plane module with no Vault dependency
+- [x] updated metadata model for `accounts.tf.json` or generated equivalent
+- [x] workspace naming standard
+- [x] variable-set attachment model
+- [x] refactored control-plane module with no Vault dependency
 
 ### Success Criteria
 
-- [ ] bootstrap workspaces can still be created from the current repo structure
-- [ ] the control-plane Terraform no longer requires OpenBao or Vault credentials
-- [ ] a new client can be represented without editing core module logic
+- [x] bootstrap workspaces can still be created from the current repo structure
+- [x] the control-plane Terraform no longer requires OpenBao or Vault credentials
+- [x] a new client can be represented without editing core module logic
 
 ## Phase 2 - Client Intake And Metadata Pipeline
 
@@ -256,7 +256,7 @@ Goal: prove the framework works end to end.
 - [ ] create one sample client such as `acme`
 - [ ] create environments `workbench`, `dev`, and `prod`
 - [ ] render metadata into generated Terraform inputs
-- [ ] create bootstrap workspace for at least one AWS account
+- [x] create bootstrap workspace for at least one AWS account
 - [ ] create runtime workspace for at least one environment stack
 - [ ] apply `account-bootstrap`
 - [ ] apply `secure-baseline`

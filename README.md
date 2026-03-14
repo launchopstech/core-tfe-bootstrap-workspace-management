@@ -16,6 +16,12 @@ Terraform control plane for bootstrap workspace management in HCP Terraform.
 - `bootstrap-accounts-dev/` manages bootstrap workspaces for the dev project
 - `bootstrap-accounts-workbench/` manages bootstrap workspaces for the workbench project
 
+## Bootstrap Vs Runtime Workspaces
+
+- bootstrap workspaces are control-plane workspaces created by this repo to manage account-level metadata, tags, variable set attachments, and workspace factory behavior
+- runtime workspaces are workload deployment workspaces (for platform or application stacks) that consume the metadata and variable set model created by bootstrap workspaces
+- bootstrap workspaces should stay focused on orchestration and metadata management, while runtime workspaces should run infrastructure stacks for specific environments and services
+
 ## Quick Start
 
 ```bash
