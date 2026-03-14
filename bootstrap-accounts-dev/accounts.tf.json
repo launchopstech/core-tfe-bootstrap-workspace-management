@@ -8,6 +8,7 @@
         "product_name": "platform",
         "region": "us-east-1",
         "security_tier": "standard",
+        "vcs_repo_identifier": "bomatronix/core-tfe-bootstrap-workspace-management",
         "services": [
           "bootstrap"
         ]
