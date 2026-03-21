@@ -24,3 +24,7 @@ override.tf.json
 
 # Plan output
 *.plan
+
+# Python bytecode cache
+__pycache__/
+*.pyc

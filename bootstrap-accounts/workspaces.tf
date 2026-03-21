@@ -31,6 +31,33 @@ resource "tfe_workspace" "bootstrap_account" {
     branch         = "main"
     oauth_token_id = var.aws_core_oauth_token_id
   }
+
+  lifecycle {
+    precondition {
+      condition     = can(regex("^[0-9]{12}$", each.key))
+      error_message = "Account key '${each.key}' must be a 12-digit AWS account ID."
+    }
+
+    precondition {
+      condition     = contains(["dev", "qa", "prod", "workbench", "sbx"], each.value.env)
+      error_message = "Account '${each.key}': env '${each.value.env}' is not allowed. Must be one of: dev, qa, prod, workbench, sbx."
+    }
+
+    precondition {
+      condition     = contains(["standard", "high"], each.value.security_tier)
+      error_message = "Account '${each.key}': security_tier '${each.value.security_tier}' is not allowed. Must be one of: standard, high."
+    }
+
+    precondition {
+      condition     = each.value.client_id != ""
+      error_message = "Account '${each.key}': client_id (or product_name) must be set and non-empty."
+    }
+
+    precondition {
+      condition     = each.value.vcs_repo_identifier != "bootstrap"
+      error_message = "Account '${each.key}': vcs_repo_identifier must be set to a real repo (org/repo). Got default placeholder 'bootstrap'."
+    }
+  }
 }
 
 resource "tfe_workspace_variable_set" "bootstrap_account" {
