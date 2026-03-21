@@ -35,3 +35,21 @@ output "bootstrap_dev_project_id" {
 output "bootstrap_workbench_project_id" {
   value = tfe_project.bootstrap_workbench.id
 }
+
+output "team_dev_project_id" {
+  value = tfe_project.team_dev.id
+}
+
+output "team_workbench_project_id" {
+  value = tfe_project.team_workbench.id
+}
+
+output "team_project_ids" {
+  value = {
+    sbx       = tfe_project.team_sbx.id
+    dev       = tfe_project.team_dev.id
+    qa        = tfe_project.team_qa.id
+    prod      = tfe_project.team_prod.id
+    workbench = tfe_project.team_workbench.id
+  }
+}

@@ -76,3 +76,59 @@ resource "tfe_variable" "bootstrap_account_metadata" {
   category     = "terraform"
   description  = "WRITTEN BY AUTOMATION: Bootstrap workspace metadata."
 }
+
+################################################################################
+# Team workspaces (client-facing, named by AWS account ID)
+################################################################################
+
+resource "tfe_workspace" "team" {
+  for_each = local.normalized_accounts
+
+  name                          = each.key
+  description                   = "Team workspace for ${each.value.client_id} ${each.value.env}. Add project workspaces here."
+  allow_destroy_plan            = false
+  auto_apply                    = false
+  speculative_enabled           = true
+  global_remote_state           = false
+  queue_all_runs                = false
+  organization                  = "core-aws"
+  project_id                    = var.team_project_id
+  execution_mode                = "remote"
+  terraform_version             = var.terraform_version
+  structured_run_output_enabled = true
+
+  tag_names = distinct(compact([
+    "workspace-class-team",
+    "client-${each.value.client_id}",
+    "env-${each.value.env}",
+    "tier-${each.value.security_tier}",
+    "family-${each.value.service_family}",
+  ]))
+}
+
+resource "tfe_workspace_variable_set" "team" {
+  for_each = local.team_workspace_variable_sets
+
+  workspace_id    = each.value.workspace_id
+  variable_set_id = each.value.variable_set_id
+}
+
+resource "tfe_variable" "team_metadata" {
+  for_each = local.team_metadata_variables
+
+  workspace_id = each.value.workspace_id
+  key          = each.value.key
+  value        = each.value.value
+  category     = "terraform"
+  description  = "WRITTEN BY AUTOMATION: Team workspace metadata."
+}
+
+resource "tfe_notification_configuration" "team_failure" {
+  for_each         = var.enable_aws_core_failure_notification ? tfe_workspace.team : {}
+  name             = "team_failure_notification"
+  enabled          = true
+  destination_type = "email"
+  triggers         = ["run:errored"]
+  email_addresses  = ["bomatra@gmail.com"]
+  workspace_id     = each.value.id
+}
