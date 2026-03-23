@@ -10,3 +10,15 @@ output "bootstrap_account_workspaces" {
     }
   }
 }
+
+output "team_workspaces" {
+  description = "Client-facing team workspaces keyed by AWS account ID."
+  value = {
+    for account_id, workspace in tfe_workspace.team : account_id => {
+      id         = workspace.id
+      name       = workspace.name
+      project_id = workspace.project_id
+      tag_names  = workspace.tag_names
+    }
+  }
+}

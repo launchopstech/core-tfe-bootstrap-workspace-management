@@ -89,4 +89,42 @@ locals {
       }
     }
   ]...)
+
+  # ── Team workspace variable sets ──────────────────────────────────────────
+  team_workspace_variable_sets = merge(
+    {
+      for account_id, account in local.normalized_accounts :
+      "team:${account_id}:global" => {
+        workspace_id    = tfe_workspace.team[account_id].id
+        variable_set_id = local.bootstrap_global_variable_set_id
+      }
+      if local.bootstrap_global_variable_set_id != null
+    },
+    {
+      for account_id, account in local.normalized_accounts :
+      "team:${account_id}:environment" => {
+        workspace_id    = tfe_workspace.team[account_id].id
+        variable_set_id = lookup(local.environment_variable_set_ids, account.env, null)
+      }
+      if lookup(local.environment_variable_set_ids, account.env, null) != null
+    },
+    {
+      for account_id, account in local.normalized_accounts :
+      "team:${account_id}:security-tier" => {
+        workspace_id    = tfe_workspace.team[account_id].id
+        variable_set_id = lookup(local.security_tier_variable_set_ids, account.security_tier, null)
+      }
+      if lookup(local.security_tier_variable_set_ids, account.security_tier, null) != null
+    },
+  )
+
+  team_metadata_variables = length(local.normalized_accounts) == 0 ? {} : merge([
+    for account_id, account in local.normalized_accounts : {
+      for key, value in account.metadata : "team:${account_id}:${key}" => {
+        workspace_id = tfe_workspace.team[account_id].id
+        key          = key
+        value        = value
+      }
+    }
+  ]...)
 }

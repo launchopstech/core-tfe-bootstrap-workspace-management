@@ -14,7 +14,12 @@ variable "enable_aws_core_failure_notification" {
 }
 
 variable "project_id" {
-  description = "The ID of the project to place the workspace in."
+  description = "The ID of the agency-internal project to place bootstrap workspaces in (hidden from client)."
+  type        = string
+}
+
+variable "team_project_id" {
+  description = "The ID of the client-facing team project to place team workspaces in."
   type        = string
 }
 
