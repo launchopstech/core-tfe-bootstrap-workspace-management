@@ -2,219 +2,79 @@
 # bootstrap-accounts-varset
 ################################################################################
 
-resource "tfe_variable_set" "bootstrap_accounts" {
-  name         = "bootstrap-accounts"
-  description  = "WRITTEN BY AUTOMATION: Shared variables used by each bootstrap-account workspace."
+resource "tfe_variable_set" "bootstrap_global" {
+  name         = "bootstrap-accounts-global"
+  description  = "WRITTEN BY AUTOMATION: Shared defaults used by all bootstrap-account workspaces."
   organization = "core-aws"
 }
 
-resource "tfe_variable" "aws_master_account_id" {
-  key            = "aws_master_account_id"
-  value          = "889851937279"
-  category       = "terraform"
-  variable_set_id = tfe_variable_set.bootstrap_accounts.id
+resource "tfe_variable" "bootstrap_global_managed_by" {
+  key             = "managed_by"
+  value           = "terraform"
+  description     = "WRITTEN BY AUTOMATION: Declares the bootstrap control plane owner."
+  category        = "terraform"
+  variable_set_id = tfe_variable_set.bootstrap_global.id
 }
 
-resource "tfe_variable" "vault_approle_role_id" {
-  key            = "vault_approle_role_id"
-  value          = "POPULATE IN UI"
-  description    = "The approle role id used to authenticate via approle auth."
-  category       = "terraform"
-  sensitive      = true
-  variable_set_id = tfe_variable_set.bootstrap_accounts.id
-  lifecycle {
-    ignore_changes = [value]
-  }
+resource "tfe_variable" "bootstrap_global_workspace_class" {
+  key             = "workspace_class"
+  value           = "bootstrap-account"
+  description     = "WRITTEN BY AUTOMATION: Shared workspace class for bootstrap-account workspaces."
+  category        = "terraform"
+  variable_set_id = tfe_variable_set.bootstrap_global.id
 }
 
-resource "tfe_variable" "vault_approle_secret_id" {
-  key            = "vault_approle_secret_id"
-  value          = "POPULATE IN UI"
-  description    = "The approle secret id used to authenticate via approle auth."
-  category       = "terraform"
-  sensitive      = true
-  variable_set_id = tfe_variable_set.bootstrap_accounts.id
-  lifecycle {
-    ignore_changes = [value]
-  }
-}
+resource "tfe_variable_set" "bootstrap_environment" {
+  for_each = local.environment_variable_sets
 
-resource "tfe_variable" "vault_cc_prod_username" {
-  key            = "vault_cc_prod_username"
-  value          = "POPULATE IN UI"
-  description    = "Username used to authenticate to vault-cc-prod."
-  category       = "terraform"
-  variable_set_id = tfe_variable_set.bootstrap_accounts.id
-  lifecycle {
-    ignore_changes = [value]
-  }
-}
-
-resource "tfe_variable" "vault_cc_prod_password" {
-  key            = "vault_cc_prod_password"
-  value          = "POPULATE IN UI"
-  description    = "Password used to authenticate to vault-cc-prod."
-  category       = "terraform"
-  sensitive      = true
-  variable_set_id = tfe_variable_set.bootstrap_accounts.id
-  lifecycle {
-    ignore_changes = [value]
-  }
-}
-
-resource "tfe_variable" "vault_addr_dt" {
-  key            = "vault_addr_dt"
-  value          = "https://vault-cc.dt.duke-energy.com"
-  description    = "The address to the vault cluster."
-  category       = "terraform"
-  variable_set_id = tfe_variable_set.bootstrap_accounts.id
-}
-
-################################################################################
-# sbx & dev varsets
-################################################################################
-
-resource "tfe_variable_set" "bootstrap_accounts_dt" {
-  name         = "bootstrap-accounts-dt"
-  description  = "WRITTEN BY AUTOMATION: Shared variables used by bootstrap-account workspaces for SBX and DEV accounts."
+  name         = each.value.name
+  description  = each.value.description
   organization = "core-aws"
 }
 
-resource "tfe_project_variable_set" "bootstrap_accounts_sbx" {
-  variable_set_id = tfe_variable_set.bootstrap_accounts_dt.id
-  project_id      = tfe_project.bootstrap_sbx.id
+resource "tfe_variable" "bootstrap_environment_name" {
+  for_each = local.environment_variable_sets
+
+  key             = "environment"
+  value           = each.key
+  description     = "WRITTEN BY AUTOMATION: Environment assigned to this bootstrap-account variable set."
+  category        = "terraform"
+  variable_set_id = tfe_variable_set.bootstrap_environment[each.key].id
 }
 
-resource "tfe_project_variable_set" "bootstrap_accounts_dev" {
-  variable_set_id = tfe_variable_set.bootstrap_accounts_dt.id
-  project_id      = tfe_project.bootstrap_dev.id
-}
+resource "tfe_variable_set" "bootstrap_security_tier" {
+  for_each = local.security_tier_variable_sets
 
-resource "tfe_variable" "vault_config_username_dt" {
-  key            = "vault_config_username"
-  value          = "core-aws"
-  description    = "Username to authenticate to Vault."
-  category       = "terraform"
-  variable_set_id = tfe_variable_set.bootstrap_accounts_dt.id
-  lifecycle {
-    ignore_changes = [value]
-  }
-}
-
-resource "tfe_variable" "vault_config_password_dt" {
-  key            = "vault_config_password"
-  value          = "POPULATE IN UI"
-  description    = "Password to authenticate to Vault."
-  category       = "terraform"
-  sensitive      = true
-  variable_set_id = tfe_variable_set.bootstrap_accounts_dt.id
-  lifecycle {
-    ignore_changes = [value]
-  }
-}
-
-resource "tfe_variable" "vault_addr_dt_alt" {
-  key            = "vault_addr"
-  value          = "http://localhost:8200"
-  description    = "Vault address for SBX/DEV"
-  category       = "terraform"
-  variable_set_id = tfe_variable_set.bootstrap_accounts_dt.id
-  depends_on     = [tfe_variable_set.bootstrap_accounts_dt]
-}
-
-################################################################################
-# qa varset
-################################################################################
-
-resource "tfe_variable_set" "bootstrap_accounts_qa" {
-  name         = "bootstrap-accounts-qa"
-  description  = "WRITTEN BY AUTOMATION: Shared variables used by bootstrap-account workspaces for QA accounts."
+  name         = each.value.name
+  description  = each.value.description
   organization = "core-aws"
 }
 
-resource "tfe_project_variable_set" "bootstrap_accounts_qa" {
-  variable_set_id = tfe_variable_set.bootstrap_accounts_qa.id
-  project_id      = tfe_project.bootstrap_qa.id
+resource "tfe_variable" "bootstrap_security_tier_name" {
+  for_each = local.security_tier_variable_sets
+
+  key             = "security_tier"
+  value           = each.key
+  description     = "WRITTEN BY AUTOMATION: Security tier assigned to this bootstrap-account variable set."
+  category        = "terraform"
+  variable_set_id = tfe_variable_set.bootstrap_security_tier[each.key].id
 }
 
-resource "tfe_variable" "vault_config_username_qa" {
-  key            = "vault_config_username"
-  value          = "core-aws"
-  description    = "Username to authenticate to Vault."
-  category       = "terraform"
-  variable_set_id = tfe_variable_set.bootstrap_accounts_qa.id
-  lifecycle {
-    ignore_changes = [value]
-  }
-}
+resource "tfe_variable_set" "control_plane_secrets" {
+  count = length(var.control_plane_sensitive_variables) > 0 ? 1 : 0
 
-resource "tfe_variable" "vault_config_password_qa" {
-  key            = "vault_config_password"
-  value          = "POPULATE IN UI"
-  description    = "Password to authenticate to Vault."
-  category       = "terraform"
-  sensitive      = true
-  variable_set_id = tfe_variable_set.bootstrap_accounts_qa.id
-  lifecycle {
-    ignore_changes = [value]
-  }
-}
-
-resource "tfe_variable" "vault_addr_qa" {
-  key            = "vault_addr"
-  value          = "https://vault-cc.qa.duke-energy.com"
-  description    = "Vault address for QA"
-  category       = "terraform"
-  variable_set_id = tfe_variable_set.bootstrap_accounts_qa.id
-}
-
-################################################################################
-# prod varset
-################################################################################
-
-resource "tfe_variable_set" "bootstrap_accounts_prod" {
-  name         = "bootstrap-accounts-prod"
-  description  = "WRITTEN BY AUTOMATION: Shared variables used by bootstrap-account workspaces for PROD accounts."
+  name         = "bootstrap-accounts-control-plane-secrets"
+  description  = "WRITTEN BY AUTOMATION: Shared sensitive values used by bootstrap-account workspaces."
   organization = "core-aws"
 }
 
-resource "tfe_project_variable_set" "bootstrap_accounts_prod" {
-  variable_set_id = tfe_variable_set.bootstrap_accounts_prod.id
-  project_id      = tfe_project.bootstrap_prod.id
-}
+resource "tfe_variable" "control_plane_secrets" {
+  for_each = toset(keys(nonsensitive(var.control_plane_sensitive_variables)))
 
-resource "tfe_project_variable_set" "bootstrap_accounts_workbench" {
-  variable_set_id = tfe_variable_set.bootstrap_accounts_prod.id
-  project_id      = tfe_project.bootstrap_workbench.id
-}
-
-resource "tfe_variable" "vault_config_username_prod" {
-  key            = "vault_config_username"
-  value          = "core-aws"
-  description    = "Username to authenticate to Vault."
-  category       = "terraform"
-  variable_set_id = tfe_variable_set.bootstrap_accounts_prod.id
-  lifecycle {
-    ignore_changes = [value]
-  }
-}
-
-resource "tfe_variable" "vault_config_password_prod" {
-  key            = "vault_config_password"
-  value          = "POPULATE IN UI"
-  description    = "Password to authenticate to Vault."
-  category       = "terraform"
-  sensitive      = true
-  variable_set_id = tfe_variable_set.bootstrap_accounts_prod.id
-  lifecycle {
-    ignore_changes = [value]
-  }
-}
-
-resource "tfe_variable" "vault_addr_prod" {
-  key            = "vault_addr"
-  value          = "https://vault-cc.prod.duke-energy.com"
-  description    = "Vault address for PROD"
-  category       = "terraform"
-  variable_set_id = tfe_variable_set.bootstrap_accounts_prod.id
+  key             = each.value
+  value           = var.control_plane_sensitive_variables[each.value]
+  description     = "WRITTEN BY AUTOMATION: Shared control-plane sensitive value."
+  category        = "terraform"
+  sensitive       = true
+  variable_set_id = tfe_variable_set.control_plane_secrets[0].id
 }

@@ -1,5 +1,5 @@
 variable "accounts" {
-  description = "JSON object of AWS accounts containing account_id, product_name, and account_name"
+  description = "Map of AWS account metadata keyed by account ID."
   type        = map(any)
 }
 
@@ -13,13 +13,13 @@ variable "enable_aws_core_failure_notification" {
   type        = bool
 }
 
-variable "environment" {
-  description = "The environment of AWS accounts."
+variable "project_id" {
+  description = "The ID of the agency-internal project to place bootstrap workspaces in (hidden from client)."
   type        = string
 }
 
-variable "project_id" {
-  description = "The ID of the project to place the workspace in."
+variable "team_project_id" {
+  description = "The ID of the client-facing team project to place team workspaces in."
   type        = string
 }
 
@@ -29,19 +29,8 @@ variable "terraform_version" {
   default     = "~> 1.0.0"
 }
 
-variable "tfe_prod_admin_token" {
-  description = "User token for the Admin user. Used to invoke the bootstrap-varset-management workspace."
+variable "bootstrap_varsets_workspace_name" {
+  description = "Workspace name that publishes the bootstrap variable-set outputs."
   type        = string
-  sensitive   = true
-}
-
-variable "vault_approle_role_id" {
-  description = "The approle role id used to authenticate via approle auth. This value can be found in vault here: ..."
-  type        = string
-}
-
-variable "vault_approle_secret_id" {
-  description = "The approle secret id used to authenticate via approle auth. This value can be found in vault here: ..."
-  type        = string
-  sensitive   = true
+  default     = "00-bootstrap-account-workspace-management"
 }
