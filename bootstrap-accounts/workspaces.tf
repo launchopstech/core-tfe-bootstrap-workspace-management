@@ -84,7 +84,7 @@ resource "tfe_variable" "bootstrap_account_metadata" {
 resource "tfe_workspace" "team" {
   for_each = local.normalized_accounts
 
-  name                          = each.key
+  name                          = "${each.key}-${each.value.env}"
   description                   = "Team workspace for ${each.value.client_id} ${each.value.env}. Add project workspaces here."
   allow_destroy_plan            = false
   auto_apply                    = false
