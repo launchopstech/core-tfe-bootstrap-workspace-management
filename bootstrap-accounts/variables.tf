@@ -13,13 +13,19 @@ variable "enable_aws_core_failure_notification" {
   type        = bool
 }
 
+variable "organization" {
+  description = "HCP Terraform organization name."
+  type        = string
+  default     = "core-aws"
+}
+
 variable "project_id" {
   description = "The ID of the agency-internal project to place bootstrap workspaces in (hidden from client)."
   type        = string
 }
 
 variable "team_project_id" {
-  description = "The ID of the client-facing team project to place team workspaces in."
+  description = "The ID of the client-facing team project to place team and service workspaces in."
   type        = string
 }
 
