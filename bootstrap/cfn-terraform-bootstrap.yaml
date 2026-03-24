@@ -12,22 +12,41 @@ Parameters:
 
   HCPProjectName:
     Type: String
-    Default: "*"
     Description: >
-      HCP Terraform project name to restrict access to. Use * to allow
-      all projects in the organization.
+      HCP Terraform project name to restrict access to. Must be an explicit
+      project name — wildcards are not permitted for production deployments.
+    AllowedPattern: "^[^*]+$"
+    ConstraintDescription: Wildcard (*) is not allowed. Specify an explicit project name.
 
   WorkspaceName:
     Type: String
-    Default: "*"
     Description: >
-      HCP Terraform workspace name to restrict access to. Use * to allow
-      all workspaces in the organization.
+      HCP Terraform workspace name to restrict access to. Must be an explicit
+      workspace name or prefix pattern (e.g. bootstrap-*). Wildcards that match
+      all workspaces are not permitted.
+    AllowedPattern: "^[^*].*"
+    ConstraintDescription: >
+      Must start with a non-wildcard character. Use a specific name or
+      prefix (e.g. bootstrap-*) rather than a bare *.
+
+  KMSAliasName:
+    Type: String
+    Description: >
+      Alias for the platform KMS key. Format: alias/<name>.
+      Use a name that reflects the client/environment (e.g. alias/acme-prod-platform).
+    AllowedPattern: "^alias/[a-zA-Z0-9:/_-]+$"
+    ConstraintDescription: Must begin with alias/ and contain only alphanumeric characters, colons, slashes, underscores, or hyphens.
 
 Resources:
 
   ##############################################################################
   # OIDC Provider — trusts HCP Terraform token issuer
+  #
+  # Thumbprint: SHA-1 of the root CA for app.terraform.io (DigiCert Global Root G2).
+  # Verify with:
+  #   openssl s_client -connect app.terraform.io:443 -showcerts 2>/dev/null \
+  #     | openssl x509 -fingerprint -sha1 -noout | tr -d ':' | tr 'A-F' 'a-f'
+  # If HashiCorp rotates their TLS cert, update this thumbprint and redeploy.
   ##############################################################################
   HCPTerraformOIDCProvider:
     Type: AWS::IAM::OIDCProvider
@@ -37,6 +56,159 @@ Resources:
         - aws.workload.identity
       ThumbprintList:
         - 9e99a48a9960b14926bb7f3b02e22da2b0ab7280
+
+  ##############################################################################
+  # TerraformDeployPolicy — least-privilege policy for platform services
+  # Covers: vpc, eks, rds, s3, kms, iam-access, secure-baseline, account-bootstrap
+  ##############################################################################
+  TerraformDeployPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: TerraformDeployPolicy
+      Description: "Least-privilege policy for HCP Terraform workspaces: VPC, EKS, RDS, S3, KMS, CloudTrail, Config, GuardDuty, and scoped IAM."
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+
+          # ── Networking / VPC ─────────────────────────────────────────────────
+          - Sid: VPCAndNetworking
+            Effect: Allow
+            Action:
+              - ec2:*
+            Resource: "*"
+
+          # ── EKS ──────────────────────────────────────────────────────────────
+          - Sid: EKS
+            Effect: Allow
+            Action:
+              - eks:*
+            Resource: "*"
+
+          # ── RDS ──────────────────────────────────────────────────────────────
+          - Sid: RDS
+            Effect: Allow
+            Action:
+              - rds:*
+            Resource: "*"
+
+          # ── S3 ───────────────────────────────────────────────────────────────
+          - Sid: S3
+            Effect: Allow
+            Action:
+              - s3:*
+            Resource: "*"
+
+          # ── KMS ──────────────────────────────────────────────────────────────
+          - Sid: KMS
+            Effect: Allow
+            Action:
+              - kms:*
+            Resource: "*"
+
+          # ── Secure baseline (CloudTrail, Config, GuardDuty, SecurityHub) ─────
+          - Sid: SecureBaseline
+            Effect: Allow
+            Action:
+              - cloudtrail:*
+              - config:*
+              - guardduty:*
+              - securityhub:*
+              - access-analyzer:*
+            Resource: "*"
+
+          # ── Logging and monitoring ───────────────────────────────────────────
+          - Sid: LogsAndMonitoring
+            Effect: Allow
+            Action:
+              - logs:*
+              - cloudwatch:*
+              - events:*
+              - sns:*
+            Resource: "*"
+
+          # ── Parameter Store and Secrets Manager ──────────────────────────────
+          - Sid: SSMAndSecrets
+            Effect: Allow
+            Action:
+              - ssm:*
+              - secretsmanager:*
+            Resource: "*"
+
+          # ── IAM — service roles, instance profiles, OIDC providers ───────────
+          # Excludes user/group/access-key management to block privilege escalation.
+          - Sid: IAMServiceRolesAndPolicies
+            Effect: Allow
+            Action:
+              - iam:CreateRole
+              - iam:DeleteRole
+              - iam:GetRole
+              - iam:UpdateRole
+              - iam:UpdateRoleDescription
+              - iam:UpdateAssumeRolePolicy
+              - iam:TagRole
+              - iam:UntagRole
+              - iam:ListRoles
+              - iam:ListRoleTags
+              - iam:AttachRolePolicy
+              - iam:DetachRolePolicy
+              - iam:PutRolePolicy
+              - iam:DeleteRolePolicy
+              - iam:GetRolePolicy
+              - iam:ListRolePolicies
+              - iam:ListAttachedRolePolicies
+              - iam:PassRole
+              - iam:CreateInstanceProfile
+              - iam:DeleteInstanceProfile
+              - iam:GetInstanceProfile
+              - iam:ListInstanceProfiles
+              - iam:ListInstanceProfilesForRole
+              - iam:AddRoleToInstanceProfile
+              - iam:RemoveRoleFromInstanceProfile
+              - iam:CreatePolicy
+              - iam:DeletePolicy
+              - iam:GetPolicy
+              - iam:GetPolicyVersion
+              - iam:ListPolicies
+              - iam:ListPolicyVersions
+              - iam:CreatePolicyVersion
+              - iam:DeletePolicyVersion
+              - iam:SetDefaultPolicyVersion
+              - iam:TagPolicy
+              - iam:UntagPolicy
+              - iam:CreateOpenIDConnectProvider
+              - iam:DeleteOpenIDConnectProvider
+              - iam:GetOpenIDConnectProvider
+              - iam:ListOpenIDConnectProviders
+              - iam:UpdateOpenIDConnectProviderThumbprint
+              - iam:AddClientIDToOpenIDConnectProvider
+              - iam:RemoveClientIDFromOpenIDConnectProvider
+              - iam:CreateServiceLinkedRole
+              - iam:DeleteServiceLinkedRole
+              - iam:GetServiceLinkedRoleDeletionStatus
+            Resource: "*"
+
+          # ── Explicit deny: privilege escalation vectors ───────────────────────
+          # Prevents Terraform from creating human IAM users, access keys, or
+          # console logins — actions that could be used to backdoor the account.
+          - Sid: DenyPrivilegeEscalation
+            Effect: Deny
+            Action:
+              - iam:CreateUser
+              - iam:DeleteUser
+              - iam:CreateAccessKey
+              - iam:DeleteAccessKey
+              - iam:CreateLoginProfile
+              - iam:UpdateLoginProfile
+              - iam:DeleteLoginProfile
+              - iam:AttachUserPolicy
+              - iam:DetachUserPolicy
+              - iam:PutUserPolicy
+              - iam:DeleteUserPolicy
+              - iam:AddUserToGroup
+              - iam:CreateGroup
+              - iam:AttachGroupPolicy
+              - iam:PutGroupPolicy
+            Resource: "*"
 
   ##############################################################################
   # TerraformDeployRole — assumed by HCP Terraform workspaces via OIDC
@@ -67,7 +239,7 @@ Resources:
                     Project: !Ref HCPProjectName
                     Workspace: !Ref WorkspaceName
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AdministratorAccess
+        - !Ref TerraformDeployPolicy
       Tags:
         - Key: ManagedBy
           Value: terraform
@@ -79,6 +251,8 @@ Resources:
   ##############################################################################
   PlatformKMSKey:
     Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       Description: Platform encryption key for CloudTrail, Config, GuardDuty logs
       EnableKeyRotation: true
@@ -102,6 +276,9 @@ Resources:
               - kms:Encrypt
               - kms:GenerateDataKey*
               - kms:ReEncrypt*
+              - kms:CreateGrant
+              - kms:ListGrants
+              - kms:RevokeGrant
             Resource: "*"
           - Sid: AWSServicesKeyUsage
             Effect: Allow
@@ -126,13 +303,17 @@ Resources:
   PlatformKMSAlias:
     Type: AWS::KMS::Alias
     Properties:
-      AliasName: alias/test-client-dev-platform
+      AliasName: !Ref KMSAliasName
       TargetKeyId: !Ref PlatformKMSKey
 
 Outputs:
   TerraformDeployRoleArn:
     Description: Set this as TFC_AWS_RUN_ROLE_ARN in HCP Terraform workspace.
     Value: !GetAtt TerraformDeployRole.Arn
+
+  TerraformDeployPolicyArn:
+    Description: ARN of the managed policy attached to TerraformDeployRole.
+    Value: !Ref TerraformDeployPolicy
 
   OIDCProviderArn:
     Description: ARN of the HCP Terraform OIDC provider.
