@@ -19,10 +19,8 @@ terraform {
 provider "aws" {
   region = var.aws_region
 
-  assume_role {
-    role_arn    = var.terraform_role_arn
-    external_id = var.external_id
-  }
+  # Authentication via HCP Terraform Dynamic Provider Credentials (OIDC).
+  # Set TFC_AWS_PROVIDER_AUTH=true and TFC_AWS_RUN_ROLE_ARN on the workspace.
 
   default_tags {
     tags = {

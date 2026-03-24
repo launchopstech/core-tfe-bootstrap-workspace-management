@@ -10,11 +10,6 @@ variable "vpc_workspace_name" {
 variable "client_id" { type = string }
 variable "environment" { type = string }
 variable "aws_region" { type = string }
-variable "terraform_role_arn" { type = string }
-variable "external_id" {
-  type      = string
-  sensitive = true
-}
 
 # ── RDS config ────────────────────────────────────────────────────────────────
 variable "engine" {
