@@ -1,5 +1,3 @@
-# ── HCP Terraform ──────────────────────────────────────────────────────────────
-variable "workspace_name" { type = string }
 variable "secure_baseline_workspace_name" {
   description = "Name of the secure-baseline workspace for this account. Used to read shared outputs."
   type        = string

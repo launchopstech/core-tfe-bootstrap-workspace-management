@@ -1,13 +1,5 @@
 terraform {
-  cloud {
-    hostname     = "app.terraform.io"
-    organization = "core-aws"
-    workspaces {
-      name = var.workspace_name
-    }
-  }
-
-  required_version = ">= 1.0"
+  required_version = ">= 1.1"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
