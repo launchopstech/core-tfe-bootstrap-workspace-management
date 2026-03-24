@@ -25,3 +25,18 @@ output "team_workspaces" {
     }
   }
 }
+
+output "service_workspaces" {
+  description = "Per-service workspaces keyed by {client_id}-{env}-{service}."
+  value = {
+    for k, workspace in tfe_workspace.service : k => {
+      id                = workspace.id
+      name              = workspace.name
+      working_directory = workspace.working_directory
+      project_id        = workspace.project_id
+      tag_names         = workspace.tag_names
+      account_id        = local.service_accounts[k].account.account_id
+      service           = local.service_accounts[k].service
+    }
+  }
+}

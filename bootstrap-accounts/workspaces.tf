@@ -1,3 +1,7 @@
+################################################################################
+# Bootstrap workspaces (agency-internal, one per account)
+################################################################################
+
 resource "tfe_workspace" "bootstrap_account" {
   for_each = local.normalized_accounts
 
@@ -8,7 +12,7 @@ resource "tfe_workspace" "bootstrap_account" {
   speculative_enabled = false
   global_remote_state = false
   queue_all_runs      = false
-  organization        = "core-aws"
+  organization        = var.organization
   project_id          = var.project_id
   working_directory   = each.value.working_directory
   trigger_patterns    = ["run-all-bootstrap-workspaces"]
@@ -60,25 +64,18 @@ resource "tfe_workspace" "bootstrap_account" {
   }
 }
 
-resource "tfe_workspace_variable_set" "bootstrap_account" {
-  for_each = local.workspace_variable_sets
-
-  workspace_id    = each.value.workspace_id
-  variable_set_id = each.value.variable_set_id
-}
-
-resource "tfe_variable" "bootstrap_account_metadata" {
-  for_each = local.workspace_metadata_variables
-
-  workspace_id = each.value.workspace_id
-  key          = each.value.key
-  value        = each.value.value
-  category     = "terraform"
-  description  = "WRITTEN BY AUTOMATION: Bootstrap workspace metadata."
+resource "tfe_notification_configuration" "bootstrap_failure" {
+  for_each         = { for k, v in tfe_workspace.bootstrap_account : k => v if var.enable_aws_core_failure_notification }
+  name             = "bootstrap_failure_notification"
+  enabled          = true
+  destination_type = "email"
+  triggers         = ["run:errored"]
+  email_addresses  = var.notification_emails
+  workspace_id     = each.value.id
 }
 
 ################################################################################
-# Team workspaces (client-facing, named by client and environment)
+# Team workspaces (client-facing placeholder, one per account)
 ################################################################################
 
 resource "tfe_workspace" "team" {
@@ -91,7 +88,7 @@ resource "tfe_workspace" "team" {
   speculative_enabled           = true
   global_remote_state           = false
   queue_all_runs                = false
-  organization                  = "core-aws"
+  organization                  = var.organization
   project_id                    = var.team_project_id
   execution_mode                = "remote"
   terraform_version             = var.terraform_version
@@ -106,23 +103,6 @@ resource "tfe_workspace" "team" {
   ]))
 }
 
-resource "tfe_workspace_variable_set" "team" {
-  for_each = local.team_workspace_variable_sets
-
-  workspace_id    = each.value.workspace_id
-  variable_set_id = each.value.variable_set_id
-}
-
-resource "tfe_variable" "team_metadata" {
-  for_each = local.team_metadata_variables
-
-  workspace_id = each.value.workspace_id
-  key          = each.value.key
-  value        = each.value.value
-  category     = "terraform"
-  description  = "WRITTEN BY AUTOMATION: Team workspace metadata."
-}
-
 resource "tfe_notification_configuration" "team_failure" {
   for_each         = { for k, v in tfe_workspace.team : k => v if var.enable_aws_core_failure_notification }
   name             = "team_failure_notification"
@@ -131,4 +111,80 @@ resource "tfe_notification_configuration" "team_failure" {
   triggers         = ["run:errored"]
   email_addresses  = var.notification_emails
   workspace_id     = each.value.id
+}
+
+################################################################################
+# Service workspaces (client-facing, one per service per account)
+# Named: {client_id}-{env}-{service}  e.g. test-client-dev-secure-baseline
+################################################################################
+
+resource "tfe_workspace" "service" {
+  for_each = local.service_accounts
+
+  name                          = each.key
+  description                   = "Service workspace for ${each.value.account.client_id} ${each.value.account.env} — ${each.value.service}."
+  allow_destroy_plan            = false
+  auto_apply                    = false
+  speculative_enabled           = true
+  global_remote_state           = false
+  queue_all_runs                = false
+  organization                  = var.organization
+  project_id                    = var.team_project_id
+  working_directory             = lookup(local.service_working_dirs, each.value.service, "workspaces/${each.value.service}")
+  execution_mode                = "remote"
+  terraform_version             = var.terraform_version
+  structured_run_output_enabled = true
+
+  tag_names = distinct(compact([
+    "workspace-class-service",
+    "service-${each.value.service}",
+    "client-${each.value.account.client_id}",
+    "env-${each.value.account.env}",
+    "tier-${each.value.account.security_tier}",
+    "family-${each.value.account.service_family}",
+  ]))
+
+  vcs_repo {
+    identifier     = each.value.account.vcs_repo_identifier
+    branch         = "main"
+    oauth_token_id = var.aws_core_oauth_token_id
+  }
+
+  lifecycle {
+    precondition {
+      condition     = contains(keys(local.service_working_dirs), each.value.service)
+      error_message = "Service '${each.value.service}' for '${each.key}' is not a known service. Allowed: ${join(", ", keys(local.service_working_dirs))}."
+    }
+  }
+}
+
+resource "tfe_notification_configuration" "service_failure" {
+  for_each         = { for k, v in tfe_workspace.service : k => v if var.enable_aws_core_failure_notification }
+  name             = "service_failure_notification"
+  enabled          = true
+  destination_type = "email"
+  triggers         = ["run:errored"]
+  email_addresses  = var.notification_emails
+  workspace_id     = each.value.id
+}
+
+################################################################################
+# Unified variable-set attachments and metadata variables
+################################################################################
+
+resource "tfe_workspace_variable_set" "all" {
+  for_each = local.all_workspace_variable_sets
+
+  workspace_id    = each.value.workspace_id
+  variable_set_id = each.value.variable_set_id
+}
+
+resource "tfe_variable" "workspace_metadata" {
+  for_each = local.all_metadata_variables
+
+  workspace_id = each.value.workspace_id
+  key          = each.value.key
+  value        = each.value.value
+  category     = "terraform"
+  description  = "WRITTEN BY AUTOMATION: Workspace metadata."
 }
