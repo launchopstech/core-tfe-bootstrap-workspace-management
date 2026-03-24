@@ -1,0 +1,147 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  One-time bootstrap for HCP Terraform Dynamic Provider Credentials.
+  Creates the OIDC provider and TerraformDeployRole so HCP Terraform
+  workspaces can authenticate to this AWS account without long-lived keys.
+
+Parameters:
+  HCPOrganization:
+    Type: String
+    Default: "core-aws"
+    Description: Your HCP Terraform organization name.
+
+  HCPProjectName:
+    Type: String
+    Default: "*"
+    Description: >
+      HCP Terraform project name to restrict access to. Use * to allow
+      all projects in the organization.
+
+  WorkspaceName:
+    Type: String
+    Default: "*"
+    Description: >
+      HCP Terraform workspace name to restrict access to. Use * to allow
+      all workspaces in the organization.
+
+Resources:
+
+  ##############################################################################
+  # OIDC Provider — trusts HCP Terraform token issuer
+  ##############################################################################
+  HCPTerraformOIDCProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://app.terraform.io
+      ClientIdList:
+        - aws.workload.identity
+      ThumbprintList:
+        - 9e99a48a9960b14926bb7f3b02e22da2b0ab7280
+
+  ##############################################################################
+  # TerraformDeployRole — assumed by HCP Terraform workspaces via OIDC
+  ##############################################################################
+  TerraformDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: TerraformDeployRole
+      Description: >
+        Assumed by HCP Terraform workspaces via OIDC. Grants Terraform the
+        permissions needed to manage platform infrastructure in this account.
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowHCPTerraformOIDC
+            Effect: Allow
+            Principal:
+              Federated: !GetAtt HCPTerraformOIDCProvider.Arn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                app.terraform.io:aud: aws.workload.identity
+              StringLike:
+                app.terraform.io:sub: !Sub
+                  - "organization:${Org}:project:${Project}:workspace:${Workspace}:run_phase:*"
+                  - Org: !Ref HCPOrganization
+                    Project: !Ref HCPProjectName
+                    Workspace: !Ref WorkspaceName
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+      Tags:
+        - Key: ManagedBy
+          Value: terraform
+        - Key: RoleClass
+          Value: automation
+
+  ##############################################################################
+  # KMS key — platform encryption key used by secure-baseline
+  ##############################################################################
+  PlatformKMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: Platform encryption key for CloudTrail, Config, GuardDuty logs
+      EnableKeyRotation: true
+      PendingWindowInDays: 30
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: RootAccountFullAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "kms:*"
+            Resource: "*"
+          - Sid: TerraformDeployRoleKeyUsage
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt TerraformDeployRole.Arn
+            Action:
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:GenerateDataKey*
+              - kms:ReEncrypt*
+            Resource: "*"
+          - Sid: AWSServicesKeyUsage
+            Effect: Allow
+            Principal:
+              Service:
+                - cloudtrail.amazonaws.com
+                - config.amazonaws.com
+                - logs.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:GenerateDataKey*
+              - kms:ReEncrypt*
+            Resource: "*"
+      Tags:
+        - Key: ManagedBy
+          Value: terraform
+        - Key: KeyClass
+          Value: platform
+
+  PlatformKMSAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/test-client-dev-platform
+      TargetKeyId: !Ref PlatformKMSKey
+
+Outputs:
+  TerraformDeployRoleArn:
+    Description: Set this as TFC_AWS_RUN_ROLE_ARN in HCP Terraform workspace.
+    Value: !GetAtt TerraformDeployRole.Arn
+
+  OIDCProviderArn:
+    Description: ARN of the HCP Terraform OIDC provider.
+    Value: !GetAtt HCPTerraformOIDCProvider.Arn
+
+  PlatformKMSKeyArn:
+    Description: Set this as kms_key_arn in workspace variables.
+    Value: !GetAtt PlatformKMSKey.Arn
+
+  PlatformKMSKeyId:
+    Description: KMS key ID.
+    Value: !Ref PlatformKMSKey

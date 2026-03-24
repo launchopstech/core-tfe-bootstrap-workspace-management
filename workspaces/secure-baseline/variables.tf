@@ -8,18 +8,11 @@ variable "workspace_name" {
 variable "client_id" { type = string }
 variable "environment" { type = string }
 variable "aws_region" { type = string }
-variable "terraform_role_arn" { type = string }
-variable "external_id" {
-  type      = string
-  sensitive = true
-}
-variable "agency_principal_arn" { type = string }
 
-# ── account-bootstrap options ─────────────────────────────────────────────────
-variable "use_admin_policy" {
-  description = "Use AdministratorAccess on TerraformDeployRole. False for prod."
-  type        = bool
-  default     = false
+# ── Bootstrap inputs (set manually after CFN bootstrap) ───────────────────────
+variable "kms_key_arn" {
+  description = "ARN of the platform KMS key created by the CFN bootstrap. Output of cfn-terraform-bootstrap.yaml."
+  type        = string
 }
 
 # ── secure-baseline feature flags ─────────────────────────────────────────────
