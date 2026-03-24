@@ -34,3 +34,9 @@ variable "bootstrap_varsets_workspace_name" {
   type        = string
   default     = "00-bootstrap-account-workspace-management"
 }
+
+variable "notification_emails" {
+  description = "Email addresses to notify on workspace run failures."
+  type        = list(string)
+  default     = []
+}
