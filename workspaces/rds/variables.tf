@@ -1,5 +1,3 @@
-# ── HCP Terraform ──────────────────────────────────────────────────────────────
-variable "workspace_name" { type = string }
 variable "secure_baseline_workspace_name" { type = string }
 variable "vpc_workspace_name" {
   description = "Name of the VPC workspace for this account. RDS pulls subnet and CIDR outputs from here."

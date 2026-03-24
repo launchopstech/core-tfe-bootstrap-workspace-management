@@ -16,7 +16,6 @@ locals {
       workspace_tags      = try(account.workspace_tags, [])
       workspace_class     = "bootstrap-account"
       metadata = {
-        workspace_name    = "bootstrap-${lower(replace(replace(try(account.client_id, account.product_name), "_", "-"), " ", "-"))}-${lower(try(account.env, "dev"))}"
         client_id         = lower(replace(replace(try(account.client_id, account.product_name), "_", "-"), " ", "-"))
         aws_account_id    = account.account_id
         aws_account_name  = try(account.account_name, account.account_id)
