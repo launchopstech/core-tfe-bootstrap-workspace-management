@@ -26,7 +26,7 @@ variable "team_project_id" {
 variable "terraform_version" {
   description = "Version of Terraform to be set for the created workspaces."
   type        = string
-  default     = "~> 1.0.0"
+  default     = "~> 1.9"
 }
 
 variable "bootstrap_varsets_workspace_name" {
