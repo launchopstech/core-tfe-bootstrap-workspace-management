@@ -1,8 +1,21 @@
+# Stage 1: derive normalized client_id per account key (avoids repeating the
+# replace/lower expression in both the top-level fields and the metadata map).
+locals {
+  _client_ids = {
+    for k, account in var.accounts :
+    k => lower(replace(replace(try(account.client_id, account.product_name), "_", "-"), " ", "-"))
+  }
+
+  # Shared OIDC role name — change here to rename across all workspaces.
+  _oidc_role_name = "TerraformDeployRole"
+}
+
+# Stage 2: full account normalization and all derived maps.
 locals {
   normalized_accounts = {
     for k, account in var.accounts : k => {
       account_id          = account.account_id
-      client_id           = lower(replace(replace(try(account.client_id, account.product_name), "_", "-"), " ", "-"))
+      client_id           = local._client_ids[k]
       account_name        = try(account.account_name, account.account_id)
       env                 = lower(try(account.env, "dev"))
       product_name        = try(account.product_name, "platform")
@@ -10,13 +23,13 @@ locals {
       security_tier       = lower(try(account.security_tier, "standard"))
       services            = try(account.services, [])
       service_family      = lower(try(account.service_family, "platform"))
-      description         = try(account.description, "Terraform deployment for ${try(account.client_id, account.product_name)} ${try(account.env, "dev")} (${account.account_id}).")
+      description         = try(account.description, "Terraform deployment for ${local._client_ids[k]} ${lower(try(account.env, "dev"))} (${account.account_id}).")
       working_directory   = try(account.working_directory, "workspaces/account-bootstrap")
       vcs_repo_identifier = try(account.vcs_repo_identifier, "bootstrap")
       workspace_tags      = try(account.workspace_tags, [])
       workspace_class     = "bootstrap-account"
       metadata = {
-        client_id         = lower(replace(replace(try(account.client_id, account.product_name), "_", "-"), " ", "-"))
+        client_id         = local._client_ids[k]
         aws_account_id    = account.account_id
         aws_account_name  = try(account.account_name, account.account_id)
         environment       = lower(try(account.env, "dev"))
@@ -24,7 +37,6 @@ locals {
         security_tier     = lower(try(account.security_tier, "standard"))
         service_family    = lower(try(account.service_family, "platform"))
         selected_services = jsonencode(try(account.services, []))
-        workspace_class   = "bootstrap-account"
       }
     }
   }
@@ -46,120 +58,202 @@ locals {
     null,
   )
 
-  workspace_variable_sets = merge(
-    {
+  # ── Per-service workspace map ─────────────────────────────────────────────
+  # Working directory for each service type.
+  service_working_dirs = {
+    "secure-baseline" = "workspaces/secure-baseline"
+    "vpc"             = "workspaces/vpc"
+    "rds"             = "workspaces/rds"
+    "eks"             = "workspaces/eks"
+    "s3"              = "workspaces/s3"
+    "iam-access"      = "workspaces/iam-access"
+  }
+
+  # Flattened map: "{client_id}-{env}-{service}" → { account, service }
+  # account-bootstrap is handled by the bootstrap workspace — skip it here.
+  service_accounts = {
+    for pair in flatten([
+      for k, account in local.normalized_accounts : [
+        for svc in account.services : {
+          key     = "${k}-${svc}"
+          account = account
+          service = svc
+        }
+        if svc != "account-bootstrap"
+      ]
+    ]) : pair.key => pair
+  }
+
+  # ── Unified variable-set attachment map (bootstrap + team + service) ──────
+  all_workspace_variable_sets = merge(
+    # bootstrap — global
+    local.bootstrap_global_variable_set_id == null ? {} : {
       for k, account in local.normalized_accounts :
-      "${k}:global" => {
+      "bootstrap:${k}:global" => {
         workspace_id    = tfe_workspace.bootstrap_account[k].id
         variable_set_id = local.bootstrap_global_variable_set_id
       }
-      if local.bootstrap_global_variable_set_id != null
     },
+    # bootstrap — environment
     {
       for k, account in local.normalized_accounts :
-      "${k}:environment" => {
+      "bootstrap:${k}:environment" => {
         workspace_id    = tfe_workspace.bootstrap_account[k].id
-        variable_set_id = lookup(local.environment_variable_set_ids, account.env, null)
+        variable_set_id = local.environment_variable_set_ids[account.env]
       }
-      if lookup(local.environment_variable_set_ids, account.env, null) != null
+      if contains(keys(local.environment_variable_set_ids), account.env)
     },
+    # bootstrap — security tier
     {
       for k, account in local.normalized_accounts :
-      "${k}:security-tier" => {
+      "bootstrap:${k}:security-tier" => {
         workspace_id    = tfe_workspace.bootstrap_account[k].id
-        variable_set_id = lookup(local.security_tier_variable_set_ids, account.security_tier, null)
+        variable_set_id = local.security_tier_variable_set_ids[account.security_tier]
       }
-      if lookup(local.security_tier_variable_set_ids, account.security_tier, null) != null
+      if contains(keys(local.security_tier_variable_set_ids), account.security_tier)
     },
-    {
+    # bootstrap — secrets
+    local.control_plane_secrets_variable_set_id == null ? {} : {
       for k, account in local.normalized_accounts :
-      "${k}:secrets" => {
+      "bootstrap:${k}:secrets" => {
         workspace_id    = tfe_workspace.bootstrap_account[k].id
         variable_set_id = local.control_plane_secrets_variable_set_id
       }
-      if local.control_plane_secrets_variable_set_id != null
     },
-  )
-
-  workspace_metadata_variables = length(local.normalized_accounts) == 0 ? {} : merge([
-    for k, account in local.normalized_accounts : {
-      for key, value in account.metadata : "${k}:${key}" => {
-        workspace_id = tfe_workspace.bootstrap_account[k].id
-        key          = key
-        value        = value
-      }
-    }
-  ]...)
-
-  # ── Team workspace variable sets ──────────────────────────────────────────
-  team_workspace_variable_sets = merge(
-    {
+    # team — global
+    local.bootstrap_global_variable_set_id == null ? {} : {
       for k, account in local.normalized_accounts :
       "team:${k}:global" => {
         workspace_id    = tfe_workspace.team[k].id
         variable_set_id = local.bootstrap_global_variable_set_id
       }
-      if local.bootstrap_global_variable_set_id != null
     },
+    # team — environment
     {
       for k, account in local.normalized_accounts :
       "team:${k}:environment" => {
         workspace_id    = tfe_workspace.team[k].id
-        variable_set_id = lookup(local.environment_variable_set_ids, account.env, null)
+        variable_set_id = local.environment_variable_set_ids[account.env]
       }
-      if lookup(local.environment_variable_set_ids, account.env, null) != null
+      if contains(keys(local.environment_variable_set_ids), account.env)
     },
+    # team — security tier
     {
       for k, account in local.normalized_accounts :
       "team:${k}:security-tier" => {
         workspace_id    = tfe_workspace.team[k].id
-        variable_set_id = lookup(local.security_tier_variable_set_ids, account.security_tier, null)
+        variable_set_id = local.security_tier_variable_set_ids[account.security_tier]
       }
-      if lookup(local.security_tier_variable_set_ids, account.security_tier, null) != null
+      if contains(keys(local.security_tier_variable_set_ids), account.security_tier)
+    },
+    # service — global
+    local.bootstrap_global_variable_set_id == null ? {} : {
+      for k, pair in local.service_accounts :
+      "svc:${k}:global" => {
+        workspace_id    = tfe_workspace.service[k].id
+        variable_set_id = local.bootstrap_global_variable_set_id
+      }
+    },
+    # service — environment
+    {
+      for k, pair in local.service_accounts :
+      "svc:${k}:environment" => {
+        workspace_id    = tfe_workspace.service[k].id
+        variable_set_id = local.environment_variable_set_ids[pair.account.env]
+      }
+      if contains(keys(local.environment_variable_set_ids), pair.account.env)
+    },
+    # service — security tier
+    {
+      for k, pair in local.service_accounts :
+      "svc:${k}:security-tier" => {
+        workspace_id    = tfe_workspace.service[k].id
+        variable_set_id = local.security_tier_variable_set_ids[pair.account.security_tier]
+      }
+      if contains(keys(local.security_tier_variable_set_ids), pair.account.security_tier)
     },
   )
 
-  team_metadata_variables = length(local.normalized_accounts) == 0 ? {} : merge([
-    for k, account in local.normalized_accounts : {
-      for key, value in account.metadata : "team:${k}:${key}" => {
-        workspace_id = tfe_workspace.team[k].id
-        key          = key
-        value        = value
+  # ── Unified metadata variables (bootstrap + team + service) ──────────────
+  all_metadata_variables = merge(
+    merge([
+      for k, account in local.normalized_accounts : {
+        for key, value in account.metadata : "bootstrap:${k}:${key}" => {
+          workspace_id = tfe_workspace.bootstrap_account[k].id
+          key          = key
+          value        = value
+        }
       }
-    }
-  ]...)
+    ]...),
+    merge([
+      for k, account in local.normalized_accounts : {
+        for key, value in account.metadata : "team:${k}:${key}" => {
+          workspace_id = tfe_workspace.team[k].id
+          key          = key
+          value        = value
+        }
+      }
+    ]...),
+    merge([
+      for k, pair in local.service_accounts : {
+        for key, value in pair.account.metadata : "svc:${k}:${key}" => {
+          workspace_id = tfe_workspace.service[k].id
+          key          = key
+          value        = value
+        }
+      }
+    ]...),
+  )
 
-  # ── OIDC dynamic credentials (environment variables) ──────────────────────
-  # TFC_AWS_PROVIDER_AUTH and TFC_AWS_RUN_ROLE_ARN are required by the HCP
-  # Terraform AWS provider to authenticate via OIDC dynamic credentials.
-  # The role ARN is derived from account.account_id, not the map key.
-  bootstrap_oidc_env_variables = length(local.normalized_accounts) == 0 ? {} : merge([
-    for k, account in local.normalized_accounts : {
-      "${k}:TFC_AWS_PROVIDER_AUTH" = {
+  # ── Unified OIDC env variables (bootstrap + team + service) ──────────────
+  all_oidc_env_variables = merge(
+    {
+      for k, account in local.normalized_accounts :
+      "bootstrap:${k}:TFC_AWS_PROVIDER_AUTH" => {
         workspace_id = tfe_workspace.bootstrap_account[k].id
         key          = "TFC_AWS_PROVIDER_AUTH"
         value        = "true"
       }
-      "${k}:TFC_AWS_RUN_ROLE_ARN" = {
+    },
+    {
+      for k, account in local.normalized_accounts :
+      "bootstrap:${k}:TFC_AWS_RUN_ROLE_ARN" => {
         workspace_id = tfe_workspace.bootstrap_account[k].id
         key          = "TFC_AWS_RUN_ROLE_ARN"
-        value        = "arn:aws:iam::${account.account_id}:role/TerraformDeployRole"
+        value        = "arn:aws:iam::${account.account_id}:role/${local._oidc_role_name}"
       }
-    }
-  ]...)
-
-  team_oidc_env_variables = length(local.normalized_accounts) == 0 ? {} : merge([
-    for k, account in local.normalized_accounts : {
-      "team:${k}:TFC_AWS_PROVIDER_AUTH" = {
+    },
+    {
+      for k, account in local.normalized_accounts :
+      "team:${k}:TFC_AWS_PROVIDER_AUTH" => {
         workspace_id = tfe_workspace.team[k].id
         key          = "TFC_AWS_PROVIDER_AUTH"
         value        = "true"
       }
-      "team:${k}:TFC_AWS_RUN_ROLE_ARN" = {
+    },
+    {
+      for k, account in local.normalized_accounts :
+      "team:${k}:TFC_AWS_RUN_ROLE_ARN" => {
         workspace_id = tfe_workspace.team[k].id
         key          = "TFC_AWS_RUN_ROLE_ARN"
-        value        = "arn:aws:iam::${account.account_id}:role/TerraformDeployRole"
+        value        = "arn:aws:iam::${account.account_id}:role/${local._oidc_role_name}"
       }
-    }
-  ]...)
+    },
+    {
+      for k, pair in local.service_accounts :
+      "svc:${k}:TFC_AWS_PROVIDER_AUTH" => {
+        workspace_id = tfe_workspace.service[k].id
+        key          = "TFC_AWS_PROVIDER_AUTH"
+        value        = "true"
+      }
+    },
+    {
+      for k, pair in local.service_accounts :
+      "svc:${k}:TFC_AWS_RUN_ROLE_ARN" => {
+        workspace_id = tfe_workspace.service[k].id
+        key          = "TFC_AWS_RUN_ROLE_ARN"
+        value        = "arn:aws:iam::${pair.account.account_id}:role/${local._oidc_role_name}"
+      }
+    },
+  )
 }

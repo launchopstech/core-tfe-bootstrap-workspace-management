@@ -1,4 +1,4 @@
 data "tfe_outputs" "bootstrap_variable_sets" {
-  organization = "core-aws"
+  organization = var.organization
   workspace    = var.bootstrap_varsets_workspace_name
 }
