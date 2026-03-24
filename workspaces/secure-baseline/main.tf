@@ -19,10 +19,9 @@ terraform {
 provider "aws" {
   region = var.aws_region
 
-  assume_role {
-    role_arn    = var.terraform_role_arn
-    external_id = var.external_id
-  }
+  # Authentication via HCP Terraform Dynamic Provider Credentials (OIDC).
+  # Set TFC_AWS_PROVIDER_AUTH=true and TFC_AWS_RUN_ROLE_ARN on the workspace.
+  # No long-lived access keys required.
 
   default_tags {
     tags = {
@@ -33,23 +32,12 @@ provider "aws" {
   }
 }
 
-module "account_bootstrap" {
-  source = "../../modules/aws/account-bootstrap"
-
-  client_id            = var.client_id
-  environment          = var.environment
-  agency_principal_arn = var.agency_principal_arn
-  external_id          = var.external_id
-  use_admin_policy     = var.use_admin_policy
-  tags                 = var.tags
-}
-
 module "secure_baseline" {
   source = "../../modules/aws/secure-baseline"
 
   client_id             = var.client_id
   environment           = var.environment
-  kms_key_arn           = module.account_bootstrap.kms_key_arn
+  kms_key_arn           = var.kms_key_arn
   enable_cloudtrail     = var.enable_cloudtrail
   enable_config         = var.enable_config
   enable_guardduty      = var.enable_guardduty

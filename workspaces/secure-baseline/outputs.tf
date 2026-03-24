@@ -1,13 +1,6 @@
-output "terraform_deploy_role_arn" {
-  value = module.account_bootstrap.terraform_deploy_role_arn
-}
-
 output "kms_key_arn" {
-  value = module.account_bootstrap.kms_key_arn
-}
-
-output "kms_key_id" {
-  value = module.account_bootstrap.kms_key_id
+  description = "KMS key ARN passed in from the CFN bootstrap — re-exported for downstream workspaces."
+  value       = var.kms_key_arn
 }
 
 output "logs_bucket_id" {

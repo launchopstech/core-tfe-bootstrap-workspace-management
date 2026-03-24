@@ -127,4 +127,38 @@ locals {
       }
     }
   ]...)
+
+  # ── OIDC dynamic credentials (environment variables) ──────────────────────
+  # TFC_AWS_PROVIDER_AUTH and TFC_AWS_RUN_ROLE_ARN are required by the HCP
+  # Terraform AWS provider to authenticate via OIDC dynamic credentials.
+  # The role ARN is derived deterministically from the account ID.
+  bootstrap_oidc_env_variables = length(local.normalized_accounts) == 0 ? {} : merge([
+    for account_id, account in local.normalized_accounts : {
+      "${account_id}:TFC_AWS_PROVIDER_AUTH" = {
+        workspace_id = tfe_workspace.bootstrap_account[account_id].id
+        key          = "TFC_AWS_PROVIDER_AUTH"
+        value        = "true"
+      }
+      "${account_id}:TFC_AWS_RUN_ROLE_ARN" = {
+        workspace_id = tfe_workspace.bootstrap_account[account_id].id
+        key          = "TFC_AWS_RUN_ROLE_ARN"
+        value        = "arn:aws:iam::${account_id}:role/TerraformDeployRole"
+      }
+    }
+  ]...)
+
+  team_oidc_env_variables = length(local.normalized_accounts) == 0 ? {} : merge([
+    for account_id, account in local.normalized_accounts : {
+      "team:${account_id}:TFC_AWS_PROVIDER_AUTH" = {
+        workspace_id = tfe_workspace.team[account_id].id
+        key          = "TFC_AWS_PROVIDER_AUTH"
+        value        = "true"
+      }
+      "team:${account_id}:TFC_AWS_RUN_ROLE_ARN" = {
+        workspace_id = tfe_workspace.team[account_id].id
+        key          = "TFC_AWS_RUN_ROLE_ARN"
+        value        = "arn:aws:iam::${account_id}:role/TerraformDeployRole"
+      }
+    }
+  ]...)
 }
