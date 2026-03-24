@@ -19,50 +19,8 @@ variable "bootstrap_varsets_workspace_name" {
   default     = "00-bootstrap-account-workspace-management"
 }
 
-variable "environment" {
-  description = "Deprecated compatibility input. Ignored by this root module."
-  type        = string
-  default     = null
-}
-
-variable "tfe_prod_admin_token" {
-  description = "Deprecated compatibility input. Ignored by this root module."
-  type        = string
-  default     = null
-}
-
-variable "vault_approle_role_id" {
-  description = "Deprecated compatibility input. Ignored by this root module."
-  type        = string
-  default     = null
-}
-
-variable "vault_approle_secret_id" {
-  description = "Deprecated compatibility input. Ignored by this root module."
-  type        = string
-  default     = null
-}
-
-variable "vault_addr" {
-  description = "Deprecated compatibility input. Ignored by this root module."
-  type        = string
-  default     = null
-}
-
-variable "vault_config_username" {
-  description = "Deprecated compatibility input. Ignored by this root module."
-  type        = string
-  default     = null
-}
-
-variable "vault_config_password" {
-  description = "Deprecated compatibility input. Ignored by this root module."
-  type        = string
-  default     = null
-}
-
-variable "TFE_TOKEN" {
-  description = "Deprecated compatibility input. Ignored by this root module."
-  type        = string
-  default     = null
+variable "notification_emails" {
+  description = "Email addresses to notify on workspace run failures."
+  type        = list(string)
+  default     = []
 }

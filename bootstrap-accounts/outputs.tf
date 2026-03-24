@@ -1,24 +1,27 @@
 output "bootstrap_account_workspaces" {
+  description = "Bootstrap workspaces keyed by {client_id}-{env}."
   value = {
-    for account_id, workspace in tfe_workspace.bootstrap_account : account_id => {
+    for k, workspace in tfe_workspace.bootstrap_account : k => {
       id                = workspace.id
       name              = workspace.name
       working_directory = workspace.working_directory
       tag_names         = workspace.tag_names
       project_id        = workspace.project_id
-      metadata          = local.normalized_accounts[account_id].metadata
+      account_id        = local.normalized_accounts[k].account_id
+      metadata          = local.normalized_accounts[k].metadata
     }
   }
 }
 
 output "team_workspaces" {
-  description = "Client-facing team workspaces keyed by AWS account ID."
+  description = "Client-facing team workspaces keyed by {client_id}-{env}."
   value = {
-    for account_id, workspace in tfe_workspace.team : account_id => {
+    for k, workspace in tfe_workspace.team : k => {
       id         = workspace.id
       name       = workspace.name
       project_id = workspace.project_id
       tag_names  = workspace.tag_names
+      account_id = local.normalized_accounts[k].account_id
     }
   }
 }

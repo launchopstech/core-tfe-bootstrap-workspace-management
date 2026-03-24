@@ -8,4 +8,5 @@ module "workspaces" {
   enable_aws_core_failure_notification = var.enable_aws_core_failure_notification
   terraform_version                    = var.terraform_version
   bootstrap_varsets_workspace_name     = var.bootstrap_varsets_workspace_name
+  notification_emails                  = var.notification_emails
 }
