@@ -1,7 +1,7 @@
 resource "tfe_workspace" "bootstrap_account" {
   for_each = local.normalized_accounts
 
-  name                = "bootstrap-${each.value.client_id}-${each.value.env}-${each.key}"
+  name                = "bootstrap-${each.value.client_id}-${each.value.env}"
   description         = each.value.description
   allow_destroy_plan  = true
   auto_apply          = true
@@ -34,8 +34,8 @@ resource "tfe_workspace" "bootstrap_account" {
 
   lifecycle {
     precondition {
-      condition     = can(regex("^[0-9]{12}$", each.key))
-      error_message = "Account key '${each.key}' must be a 12-digit AWS account ID."
+      condition     = can(regex("^[0-9]{12}$", each.value.account_id))
+      error_message = "Account '${each.key}': account_id '${each.value.account_id}' must be a 12-digit AWS account ID."
     }
 
     precondition {
@@ -78,13 +78,13 @@ resource "tfe_variable" "bootstrap_account_metadata" {
 }
 
 ################################################################################
-# Team workspaces (client-facing, named by AWS account ID)
+# Team workspaces (client-facing, named by client and environment)
 ################################################################################
 
 resource "tfe_workspace" "team" {
   for_each = local.normalized_accounts
 
-  name                          = "${each.key}-${each.value.env}"
+  name                          = "${each.value.client_id}-${each.value.env}"
   description                   = "Team workspace for ${each.value.client_id} ${each.value.env}. Add project workspaces here."
   allow_destroy_plan            = false
   auto_apply                    = false
@@ -124,11 +124,11 @@ resource "tfe_variable" "team_metadata" {
 }
 
 resource "tfe_notification_configuration" "team_failure" {
-  for_each         = var.enable_aws_core_failure_notification ? tfe_workspace.team : {}
+  for_each         = { for k, v in tfe_workspace.team : k => v if var.enable_aws_core_failure_notification }
   name             = "team_failure_notification"
   enabled          = true
   destination_type = "email"
   triggers         = ["run:errored"]
-  email_addresses  = ["bomatra@gmail.com"]
+  email_addresses  = var.notification_emails
   workspace_id     = each.value.id
 }

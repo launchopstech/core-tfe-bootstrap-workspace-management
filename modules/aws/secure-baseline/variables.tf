@@ -9,7 +9,7 @@ variable "environment" {
 }
 
 variable "kms_key_arn" {
-  description = "ARN of the platform KMS key from the account-bootstrap module. Used to encrypt logs, SNS, and Config delivery."
+  description = "ARN of the platform KMS key created by the CFN bootstrap (cfn-terraform-bootstrap.yaml). Used to encrypt logs, SNS, and Config delivery."
   type        = string
 }
 

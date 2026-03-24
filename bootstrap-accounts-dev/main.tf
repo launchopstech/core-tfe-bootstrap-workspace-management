@@ -14,8 +14,3 @@ terraform {
     }
   }
 }
-
-# import {
-#   id = module.workspaces.tfe_workspace.bootstrap_account["889851937279"]
-#   to = "org-uZiJo51NjS4r5PGr"
-# }
