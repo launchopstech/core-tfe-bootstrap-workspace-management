@@ -11,6 +11,7 @@ variable "enable_aws_core_failure_notification" {
 variable "terraform_version" {
   description = "Terraform version to be set for the created workspaces."
   type        = string
+  default     = "~> 1.9"
 }
 
 variable "bootstrap_varsets_workspace_name" {
