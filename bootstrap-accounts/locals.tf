@@ -23,7 +23,7 @@ locals {
   # Inputs that must be supplied manually when opting into managed service
   # workspaces. Derived dependency workspace names are injected automatically.
   service_manual_required_variable_keys = {
-    "secure-baseline" = toset([])
+    "secure-baseline" = toset(["kms_key_arn"])
     "vpc"             = toset(["cidr_block", "azs", "private_subnets", "public_subnets"])
     "rds"             = toset([])
   }
