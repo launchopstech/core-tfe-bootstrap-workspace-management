@@ -28,6 +28,7 @@ locals {
       vcs_repo_identifier = account.vcs_repo_identifier
       workspace_tags      = account.workspace_tags
       workspace_class     = "bootstrap-account"
+      services_config     = account.services_config
       metadata = {
         client_id         = local._client_ids[k]
         aws_account_id    = account.account_id
@@ -174,6 +175,46 @@ locals {
     },
   )
 
+  # ── Cross-service workspace name references ───────────────────────────────
+  # Injected so workspaces can read outputs from sibling service workspaces
+  # without manual HCP UI configuration.
+  service_link_variables = merge(
+    # secure_baseline_workspace_name — injected for vpc and rds
+    {
+      for k, pair in local.service_accounts :
+      "svc:${k}:secure_baseline_workspace_name" => {
+        workspace_id = tfe_workspace.service[k].id
+        key          = "secure_baseline_workspace_name"
+        value        = "${pair.account.client_id}-${pair.account.env}-secure-baseline"
+      }
+      if contains(["vpc", "rds"], pair.service)
+    },
+    # vpc_workspace_name — injected for rds
+    {
+      for k, pair in local.service_accounts :
+      "svc:${k}:vpc_workspace_name" => {
+        workspace_id = tfe_workspace.service[k].id
+        key          = "vpc_workspace_name"
+        value        = "${pair.account.client_id}-${pair.account.env}-vpc"
+      }
+      if pair.service == "rds"
+    },
+  )
+
+  # ── Per-service config variables (network config, etc.) ───────────────────
+  # Flattens services_config[service] entries into workspace variables for
+  # the matching service workspace.
+  service_config_variables = merge([
+    for k, pair in local.service_accounts : {
+      for var_key, var_value in lookup(pair.account.services_config, pair.service, {}) :
+      "svc:${k}:${var_key}" => {
+        workspace_id = tfe_workspace.service[k].id
+        key          = var_key
+        value        = var_value
+      }
+    }
+  ]...)
+
   # ── Unified metadata variables (bootstrap + team + service) ──────────────
   all_metadata_variables = merge(
     merge([
@@ -203,6 +244,8 @@ locals {
         }
       }
     ]...),
+    local.service_link_variables,
+    local.service_config_variables,
   )
 
   # ── Unified OIDC env variables (bootstrap + team + service) ──────────────
