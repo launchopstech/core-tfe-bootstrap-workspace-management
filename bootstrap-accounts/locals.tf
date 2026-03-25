@@ -29,6 +29,7 @@ locals {
       workspace_tags      = account.workspace_tags
       workspace_class     = "bootstrap-account"
       services_config     = account.services_config
+      services_config_hcl = account.services_config_hcl
       metadata = {
         client_id         = local._client_ids[k]
         aws_account_id    = account.account_id
@@ -201,12 +202,24 @@ locals {
     },
   )
 
-  # ── Per-service config variables (network config, etc.) ───────────────────
-  # Flattens services_config[service] entries into workspace variables for
-  # the matching service workspace.
+  # ── Per-service config variables — plain strings (hcl = false) ───────────
   service_config_variables = merge([
     for k, pair in local.service_accounts : {
       for var_key, var_value in lookup(pair.account.services_config, pair.service, {}) :
+      "svc:${k}:${var_key}" => {
+        workspace_id = tfe_workspace.service[k].id
+        key          = var_key
+        value        = var_value
+      }
+    }
+  ]...)
+
+  # ── Per-service config variables — HCL expressions (hcl = true) ──────────
+  # Use for list(string) / map variables. Values must be valid HCL expressions,
+  # e.g. ["us-east-1a", "us-east-1b"] for a list.
+  service_config_hcl_variables = merge([
+    for k, pair in local.service_accounts : {
+      for var_key, var_value in lookup(pair.account.services_config_hcl, pair.service, {}) :
       "svc:${k}:${var_key}" => {
         workspace_id = tfe_workspace.service[k].id
         key          = var_key
