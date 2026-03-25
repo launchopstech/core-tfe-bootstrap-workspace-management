@@ -1,3 +1,9 @@
+variable "organization" {
+  description = "HCP Terraform organization that owns the control-plane workspaces."
+  type        = string
+  default     = "core-aws"
+}
+
 variable "aws_core_oauth_token_id" {
   description = "The auth token id for aws core oauth."
   type        = string

@@ -35,7 +35,6 @@ locals {
           key => value
         }, {})
       }, {})
-      workspace_class = "bootstrap-account"
       metadata = {
         client_id         = local._client_ids[k]
         aws_account_id    = account.account_id
@@ -295,6 +294,15 @@ locals {
   )
 
   derived_service_workspace_variables = merge(
+    {
+      for k, pair in local.service_accounts :
+      "svc:${k}:hcp_terraform_organization" => {
+        workspace_id = tfe_workspace.service[k].id
+        key          = "hcp_terraform_organization"
+        value        = jsonencode(var.organization)
+      }
+      if contains(["vpc", "rds"], pair.service)
+    },
     {
       for k, pair in local.service_accounts :
       "svc:${k}:secure_baseline_workspace_name" => {

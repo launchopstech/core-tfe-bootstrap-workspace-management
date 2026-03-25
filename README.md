@@ -110,6 +110,7 @@ Creates the three control-plane workspaces in HCP Terraform. These workspaces ar
 
 ```bash
 terraform login   # authenticate to app.terraform.io
+export TF_CLOUD_ORGANIZATION=core-aws   # or your non-default HCP Terraform org
 cd hcp-bootstrap
 terraform init
 terraform plan
@@ -142,7 +143,7 @@ Creates the shared HCP Terraform projects and variable sets that all bootstrap w
 
 | Variable Set | Scope | Variables injected |
 |---|---|---|
-| `bootstrap-accounts-global` | all workspaces | `managed_by`, `workspace_class` |
+| `bootstrap-accounts-global` | all workspaces | none by default — reserved for future shared defaults |
 | `bootstrap-accounts-<env>` | per environment (sbx/dev/qa/prod/workbench) | `environment` |
 | `bootstrap-accounts-<tier>` | per security tier (standard/high) | `security_tier` |
 | `bootstrap-accounts-control-plane-secrets` | optional — all workspaces | sensitive values (if provided) |
@@ -278,7 +279,7 @@ Not a root — called by `bootstrap-accounts-dev` and `bootstrap-accounts-workbe
    - secrets (if configured)
 
 3. **`tfe_variable`** — writes metadata directly into the workspace as Terraform variables:
-   - `client_id`, `aws_account_id`, `aws_account_name`, `environment`, `aws_region`, `security_tier`, `service_family`, `selected_services`, `workspace_class`
+   - `client_id`, `aws_account_id`, `aws_account_name`, `environment`, `aws_region`, `security_tier`, `service_family`, `selected_services`
 
 4. **Optional `tfe_workspace` service workspaces** — created only when `service_vcs_repo_identifier` is set for the account
    - default service catalog in this repo: `secure-baseline`, `vpc`, `rds`
@@ -341,6 +342,8 @@ Steps 2 and 3 are also triggered automatically by any push to `main` via VCS int
 4. If you want managed service workspaces too, also set `service_vcs_repo_identifier` and `service_workspace_variables`
 5. Commit and push to `main`
 6. HCP Terraform runs automatically and the workspace appears in the correct project
+
+For local CLI runs against a non-default org, export `TF_CLOUD_ORGANIZATION=<your-org>` before running Terraform in `bootstrap-accounts-varset/`, `bootstrap-accounts-dev/`, or `bootstrap-accounts-workbench/`.
 
 ---
 
