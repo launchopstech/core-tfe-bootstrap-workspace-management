@@ -10,22 +10,28 @@
         "region": "us-east-1",
         "security_tier": "high",
         "vcs_repo_identifier": "bomatronix/core-tfe-bootstrap-workspace-management",
+        "service_vcs_repo_identifier": "bomatronix/core-tfe-bootstrap-workspace-management",
         "working_directory": "workspaces/account-bootstrap",
         "services": [
           "account-bootstrap",
           "secure-baseline",
           "vpc"
         ],
-        "services_config": {
+        "service_workspace_variables": {
           "vpc": {
-            "cidr_block": "10.0.0.0/16"
-          }
-        },
-        "services_config_hcl": {
-          "vpc": {
-            "azs": "[\"us-east-1a\", \"us-east-1b\"]",
-            "private_subnets": "[\"10.0.1.0/24\", \"10.0.2.0/24\"]",
-            "public_subnets": "[\"10.0.101.0/24\", \"10.0.102.0/24\"]"
+            "cidr_block": "10.0.0.0/16",
+            "azs": [
+              "us-east-1a",
+              "us-east-1b"
+            ],
+            "private_subnets": [
+              "10.0.1.0/24",
+              "10.0.2.0/24"
+            ],
+            "public_subnets": [
+              "10.0.101.0/24",
+              "10.0.102.0/24"
+            ]
           }
         }
       }

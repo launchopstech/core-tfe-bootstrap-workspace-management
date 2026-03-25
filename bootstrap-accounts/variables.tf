@@ -1,22 +1,6 @@
 variable "accounts" {
-  description = "Map of AWS account metadata keyed by {client_id}-{env}."
-  type = map(object({
-    account_id          = string
-    client_id           = optional(string)
-    account_name        = optional(string)
-    env                 = optional(string, "dev")
-    product_name        = optional(string, "platform")
-    region              = optional(string, "us-east-1")
-    security_tier       = optional(string, "standard")
-    services            = optional(list(string), [])
-    service_family      = optional(string, "platform")
-    description         = optional(string)
-    working_directory   = optional(string, "workspaces/account-bootstrap")
-    vcs_repo_identifier = optional(string, "bootstrap")
-    workspace_tags       = optional(list(string), [])
-    services_config      = optional(map(map(string)), {})
-    services_config_hcl  = optional(map(map(string)), {})
-  }))
+  description = "Map of AWS account metadata keyed by a stable unique account entry key."
+  type        = map(any)
 }
 
 variable "aws_core_oauth_token_id" {
@@ -61,4 +45,14 @@ variable "notification_emails" {
   description = "Email addresses to notify on workspace run failures."
   type        = list(string)
   default     = []
+}
+
+variable "service_working_dirs" {
+  description = "Supported service workspace working directories. Defaults to the test roots present in this repo."
+  type        = map(string)
+  default = {
+    "secure-baseline" = "workspaces/secure-baseline"
+    "vpc"             = "workspaces/vpc"
+    "rds"             = "workspaces/rds"
+  }
 }

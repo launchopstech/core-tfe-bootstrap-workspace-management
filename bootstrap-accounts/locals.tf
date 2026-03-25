@@ -14,31 +14,37 @@ locals {
 locals {
   normalized_accounts = {
     for k, account in var.accounts : k => {
-      account_id          = account.account_id
-      client_id           = local._client_ids[k]
-      account_name        = coalesce(account.account_name, account.account_id)
-      env                 = lower(account.env)
-      product_name        = account.product_name
-      region              = account.region
-      security_tier       = lower(account.security_tier)
-      services            = account.services
-      service_family      = lower(account.service_family)
-      description         = coalesce(account.description, "Terraform deployment for ${local._client_ids[k]} ${lower(account.env)} (${account.account_id}).")
-      working_directory   = account.working_directory
-      vcs_repo_identifier = account.vcs_repo_identifier
-      workspace_tags      = account.workspace_tags
-      workspace_class     = "bootstrap-account"
-      services_config     = account.services_config
-      services_config_hcl = account.services_config_hcl
+      account_id                  = account.account_id
+      client_id                   = local._client_ids[k]
+      account_name                = try(account.account_name, account.account_id)
+      env                         = lower(try(account.env, "dev"))
+      product_name                = try(account.product_name, "platform")
+      region                      = try(account.region, "us-east-1")
+      security_tier               = lower(try(account.security_tier, "standard"))
+      services                    = coalescelist(try(account.services, null), [])
+      service_family              = lower(try(account.service_family, "platform"))
+      description                 = try(account.description, "Terraform deployment for ${local._client_ids[k]} ${lower(try(account.env, "dev"))} (${account.account_id}).")
+      working_directory           = try(account.working_directory, "workspaces/account-bootstrap")
+      vcs_repo_identifier         = try(account.vcs_repo_identifier, "bootstrap")
+      service_vcs_repo_identifier = try(account.service_vcs_repo_identifier, null)
+      workspace_tags              = coalescelist(try(account.workspace_tags, null), [])
+      service_workspace_variables = try({
+        for service_name, vars in account.service_workspace_variables :
+        service_name => try({
+          for key, value in vars :
+          key => value
+        }, {})
+      }, {})
+      workspace_class = "bootstrap-account"
       metadata = {
         client_id         = local._client_ids[k]
         aws_account_id    = account.account_id
-        aws_account_name  = coalesce(account.account_name, account.account_id)
-        environment       = lower(account.env)
-        aws_region        = account.region
-        security_tier     = lower(account.security_tier)
-        service_family    = lower(account.service_family)
-        selected_services = jsonencode(account.services)
+        aws_account_name  = try(account.account_name, account.account_id)
+        environment       = lower(try(account.env, "dev"))
+        aws_region        = try(account.region, "us-east-1")
+        security_tier     = lower(try(account.security_tier, "standard"))
+        service_family    = lower(try(account.service_family, "platform"))
+        selected_services = jsonencode(coalescelist(try(account.services, null), []))
       }
     }
   }
@@ -61,29 +67,55 @@ locals {
   )
 
   # ── Per-service workspace map ─────────────────────────────────────────────
-  # Working directory for each service type.
-  service_working_dirs = {
-    "secure-baseline" = "workspaces/secure-baseline"
-    "vpc"             = "workspaces/vpc"
-    "rds"             = "workspaces/rds"
-    "eks"             = "workspaces/eks"
-    "s3"              = "workspaces/s3"
-    "iam-access"      = "workspaces/iam-access"
+  # Defaults to the test roots that exist in this repo. Real service repos can
+  # extend or replace this via var.service_working_dirs.
+  service_working_dirs = var.service_working_dirs
+
+  service_dependency_requirements = {
+    "secure-baseline" = toset([])
+    "vpc"             = toset(["secure-baseline"])
+    "rds"             = toset(["secure-baseline", "vpc"])
   }
 
-  # Flattened map: "{client_id}-{env}-{service}" → { account, service }
-  # account-bootstrap is handled by the bootstrap workspace — skip it here.
+  # Inputs that must be supplied manually when opting into managed service
+  # workspaces. Derived dependency workspace names are injected automatically.
+  service_manual_required_variable_keys = {
+    "secure-baseline" = toset([])
+    "vpc"             = toset(["cidr_block", "azs", "private_subnets", "public_subnets"])
+    "rds"             = toset([])
+  }
+
+  # Flattened map: "{account-key}-{service}" → { account, service }
+  # Service workspace creation is opt-in: only accounts with
+  # service_vcs_repo_identifier set will get service workspaces.
   service_accounts = {
     for pair in flatten([
       for k, account in local.normalized_accounts : [
         for svc in account.services : {
-          key     = "${k}-${svc}"
-          account = account
-          service = svc
+          key         = "${k}-${svc}"
+          account_key = k
+          account     = account
+          service     = svc
         }
-        if svc != "account-bootstrap"
+        if svc != "account-bootstrap" && account.service_vcs_repo_identifier != null
       ]
     ]) : pair.key => pair
+  }
+
+  service_missing_dependencies = {
+    for k, pair in local.service_accounts :
+    k => setsubtract(
+      lookup(local.service_dependency_requirements, pair.service, toset([])),
+      toset(pair.account.services),
+    )
+  }
+
+  service_missing_required_variables = {
+    for k, pair in local.service_accounts :
+    k => setsubtract(
+      lookup(local.service_manual_required_variable_keys, pair.service, toset([])),
+      toset(keys(lookup(pair.account.service_workspace_variables, pair.service, {}))),
+    )
   }
 
   # ── Unified variable-set attachment map (bootstrap + team + service) ──────
@@ -311,5 +343,40 @@ locals {
         value        = "arn:aws:iam::${pair.account.account_id}:role/${local._oidc_role_name}"
       }
     },
+  )
+
+  derived_service_workspace_variables = merge(
+    {
+      for k, pair in local.service_accounts :
+      "svc:${k}:secure_baseline_workspace_name" => {
+        workspace_id = tfe_workspace.service[k].id
+        key          = "secure_baseline_workspace_name"
+        value        = jsonencode("${pair.account_key}-secure-baseline")
+      }
+      if contains(lookup(local.service_dependency_requirements, pair.service, toset([])), "secure-baseline")
+    },
+    {
+      for k, pair in local.service_accounts :
+      "svc:${k}:vpc_workspace_name" => {
+        workspace_id = tfe_workspace.service[k].id
+        key          = "vpc_workspace_name"
+        value        = jsonencode("${pair.account_key}-vpc")
+      }
+      if contains(lookup(local.service_dependency_requirements, pair.service, toset([])), "vpc")
+    },
+  )
+
+  service_workspace_input_variables = merge(
+    merge([
+      for k, pair in local.service_accounts : {
+        for key, value in lookup(pair.account.service_workspace_variables, pair.service, {}) :
+        "svc:${k}:${key}" => {
+          workspace_id = tfe_workspace.service[k].id
+          key          = key
+          value        = jsonencode(value)
+        }
+      }
+    ]...),
+    local.derived_service_workspace_variables,
   )
 }
