@@ -18,9 +18,6 @@
           "vpc"
         ],
         "service_workspace_variables": {
-          "secure-baseline": {
-            "kms_key_arn": "REPLACE_ME"
-          },
           "vpc": {
             "cidr_block": "10.0.0.0/16",
             "azs": [

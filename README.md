@@ -229,7 +229,7 @@ The key for each entry is any stable unique identifier for that account entry. T
 | `service_family` | no | any string, default: `platform` | Logical service grouping — used as a workspace tag |
 | `vcs_repo_identifier` | yes | `org/repo` format | GitHub repo the workspace VCS integration points at |
 | `service_vcs_repo_identifier` | no | `org/repo` format | Separate repo for managed service workspaces. If omitted, the control plane will not create service workspaces for this account |
-| `service_workspace_variables` | no | map keyed by service name | Terraform variables to seed into each managed service workspace, for example network CIDRs for `vpc` or `kms_key_arn` for `secure-baseline` |
+| `service_workspace_variables` | no | map keyed by service name | Terraform variables to seed into each managed service workspace, for example network CIDRs for `vpc` |
 | `working_directory` | no | default: `terraform` | Working directory inside the VCS repo for this workspace |
 | `workspace_tags` | no | list of strings, default: `[]` | Additional HCP Terraform tags to apply to the workspace |
 
@@ -240,7 +240,6 @@ The key for each entry is any stable unique identifier for that account entry. T
 - `client_id` or `product_name` must be non-empty
 - `vcs_repo_identifier` must be set to a real repo — cannot be the default placeholder
 - managed service workspaces require `service_vcs_repo_identifier`
-- `secure-baseline` requires `service_workspace_variables["secure-baseline"].kms_key_arn`
 - `vpc` requires `service_workspace_variables["vpc"].cidr_block`, `azs`, `private_subnets`, and `public_subnets`
 - `rds` requires both `secure-baseline` and `vpc` in `services`
 
