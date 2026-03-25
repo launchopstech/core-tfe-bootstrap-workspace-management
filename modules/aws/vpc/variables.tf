@@ -33,8 +33,9 @@ variable "database_subnets" {
 }
 
 variable "logs_bucket_arn" {
-  description = "ARN of the platform logs S3 bucket from secure-baseline. Used for VPC flow logs."
+  description = "ARN of the platform logs S3 bucket from secure-baseline. Used for VPC flow logs. Flow logs are disabled when null."
   type        = string
+  default     = null
 }
 
 variable "tags" {
