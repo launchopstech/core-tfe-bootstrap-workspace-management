@@ -14,6 +14,7 @@ variable "accounts" {
     working_directory   = optional(string, "workspaces/account-bootstrap")
     vcs_repo_identifier = optional(string, "bootstrap")
     workspace_tags      = optional(list(string), [])
+    services_config     = optional(map(map(string)), {})
   }))
 }
 
