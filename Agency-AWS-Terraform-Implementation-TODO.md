@@ -1,5 +1,7 @@
 # Agency AWS Terraform Implementation TODO
 
+> Historical reference. The canonical architecture and phased roadmap now live in [Agency-Orchestration-Platform-Spec.md](./Agency-Orchestration-Platform-Spec.md).
+
 This checklist converts the framework spec into an execution plan.
 
 Successful completion means we can onboard a client by editing one JSON file, have HCP Terraform automatically provision their workspaces, and have the client self-service deploy their own services from their account-portal workspace.

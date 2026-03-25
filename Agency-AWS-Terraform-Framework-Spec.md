@@ -1,5 +1,7 @@
 # Agency AWS Terraform Framework Spec
 
+> Historical reference. The canonical architecture and phased roadmap now live in [Agency-Orchestration-Platform-Spec.md](./Agency-Orchestration-Platform-Spec.md).
+
 ## 1. Purpose
 
 Build an agency-ready Terraform framework for AWS that can:
