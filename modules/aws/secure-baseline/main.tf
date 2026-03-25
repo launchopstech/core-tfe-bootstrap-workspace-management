@@ -12,9 +12,10 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 locals {
-  account_id = data.aws_caller_identity.current.account_id
-  region     = data.aws_region.current.name
-  name_prefix = "${var.client_id}-${var.environment}"
+  account_id     = data.aws_caller_identity.current.account_id
+  region         = data.aws_region.current.name
+  name_prefix    = "${var.client_id}-${var.environment}"
+  cloudtrail_arn = "arn:aws:cloudtrail:${local.region}:${local.account_id}:trail/${local.name_prefix}-trail"
 }
 
 ################################################################################
@@ -108,33 +109,91 @@ data "aws_iam_policy_document" "logs_bucket" {
   }
 
   statement {
-    sid    = "AllowCloudTrailWrite"
+    sid    = "AWSCloudTrailAclCheck20150319"
     effect = "Allow"
     principals {
       type        = "Service"
       identifiers = ["cloudtrail.amazonaws.com"]
     }
-    actions   = ["s3:GetBucketAcl", "s3:PutObject"]
-    resources = [aws_s3_bucket.logs.arn, "${aws_s3_bucket.logs.arn}/cloudtrail/*"]
+    actions   = ["s3:GetBucketAcl"]
+    resources = [aws_s3_bucket.logs.arn]
     condition {
       test     = "StringEquals"
-      variable = "aws:SourceAccount"
-      values   = [local.account_id]
+      variable = "aws:SourceArn"
+      values   = [local.cloudtrail_arn]
     }
   }
 
   statement {
-    sid    = "AllowConfigWrite"
+    sid    = "AWSCloudTrailWrite20150319"
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["cloudtrail.amazonaws.com"]
+    }
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.logs.arn}/cloudtrail/AWSLogs/${local.account_id}/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "s3:x-amz-acl"
+      values   = ["bucket-owner-full-control"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceArn"
+      values   = [local.cloudtrail_arn]
+    }
+  }
+
+  statement {
+    sid    = "AWSConfigBucketPermissionsCheck"
     effect = "Allow"
     principals {
       type        = "Service"
       identifiers = ["config.amazonaws.com"]
     }
-    actions   = ["s3:GetBucketAcl", "s3:PutObject"]
-    resources = [aws_s3_bucket.logs.arn, "${aws_s3_bucket.logs.arn}/config/*"]
+    actions   = ["s3:GetBucketAcl"]
+    resources = [aws_s3_bucket.logs.arn]
     condition {
       test     = "StringEquals"
-      variable = "aws:SourceAccount"
+      variable = "AWS:SourceAccount"
+      values   = [local.account_id]
+    }
+  }
+
+  statement {
+    sid    = "AWSConfigBucketExistenceCheck"
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["config.amazonaws.com"]
+    }
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.logs.arn]
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceAccount"
+      values   = [local.account_id]
+    }
+  }
+
+  statement {
+    sid    = "AWSConfigBucketDelivery"
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["config.amazonaws.com"]
+    }
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.logs.arn}/config/AWSLogs/${local.account_id}/Config/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "s3:x-amz-acl"
+      values   = ["bucket-owner-full-control"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceAccount"
       values   = [local.account_id]
     }
   }

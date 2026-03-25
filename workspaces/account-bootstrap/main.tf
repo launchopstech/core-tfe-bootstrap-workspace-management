@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.1"
+  required_version = ">= 1.2"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -24,5 +24,12 @@ provider "aws" {
 }
 
 # Verifies OIDC auth is working and the correct account is targeted.
-data "aws_caller_identity" "current" {}
+data "aws_caller_identity" "current" {
+  lifecycle {
+    postcondition {
+      condition     = self.account_id == var.aws_account_id
+      error_message = "OIDC resolved AWS account '${self.account_id}', but this workspace is configured for '${var.aws_account_id}'."
+    }
+  }
+}
 data "aws_region" "current" {}

@@ -1,6 +1,7 @@
 module "workspaces" {
   source = "./../bootstrap-accounts"
 
+  organization                         = var.organization
   accounts                             = local.accounts
   project_id                           = data.tfe_outputs.bootstrap_control_plane.values["bootstrap_workbench_project_id"]
   team_project_id                      = data.tfe_outputs.bootstrap_control_plane.values["team_workbench_project_id"]

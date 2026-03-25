@@ -3,7 +3,7 @@
 locals {
   _client_ids = {
     for k, account in var.accounts :
-    k => lower(replace(replace(coalesce(account.client_id, account.product_name), "_", "-"), " ", "-"))
+    k => lower(replace(replace(coalesce(try(account.client_id, null), try(account.product_name, null), ""), "_", "-"), " ", "-"))
   }
 
   # Shared OIDC role name — change here to rename across all workspaces.
@@ -35,7 +35,6 @@ locals {
           key => value
         }, {})
       }, {})
-      workspace_class = "bootstrap-account"
       metadata = {
         client_id         = local._client_ids[k]
         aws_account_id    = account.account_id
@@ -113,7 +112,10 @@ locals {
   service_missing_required_variables = {
     for k, pair in local.service_accounts :
     k => setsubtract(
-      lookup(local.service_manual_required_variable_keys, pair.service, toset([])),
+      setunion(
+        lookup(local.service_manual_required_variable_keys, pair.service, toset([])),
+        pair.service == "vpc" && contains(pair.account.services, "rds") ? toset(["database_subnets"]) : toset([]),
+      ),
       toset(keys(lookup(pair.account.service_workspace_variables, pair.service, {}))),
     )
   }
@@ -292,6 +294,15 @@ locals {
   )
 
   derived_service_workspace_variables = merge(
+    {
+      for k, pair in local.service_accounts :
+      "svc:${k}:hcp_terraform_organization" => {
+        workspace_id = tfe_workspace.service[k].id
+        key          = "hcp_terraform_organization"
+        value        = jsonencode(var.organization)
+      }
+      if contains(["vpc", "rds"], pair.service)
+    },
     {
       for k, pair in local.service_accounts :
       "svc:${k}:secure_baseline_workspace_name" => {

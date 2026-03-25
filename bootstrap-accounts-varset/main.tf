@@ -1,7 +1,6 @@
 terraform {
   cloud {
-    hostname     = "app.terraform.io"
-    organization = "core-aws"
+    hostname = "app.terraform.io"
 
     workspaces {
       name = "00-bootstrap-account-workspace-management"
