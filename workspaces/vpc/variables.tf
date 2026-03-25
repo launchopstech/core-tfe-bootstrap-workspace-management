@@ -3,6 +3,28 @@ variable "secure_baseline_workspace_name" {
   type        = string
 }
 
+# Injected by control plane — informational only
+variable "aws_account_id" {
+  type    = string
+  default = null
+}
+variable "aws_account_name" {
+  type    = string
+  default = null
+}
+variable "security_tier" {
+  type    = string
+  default = null
+}
+variable "service_family" {
+  type    = string
+  default = null
+}
+variable "selected_services" {
+  type    = string
+  default = null
+}
+
 # ── Identity (set by control plane) ──────────────────────────────────────────
 variable "client_id" { type = string }
 variable "environment" { type = string }

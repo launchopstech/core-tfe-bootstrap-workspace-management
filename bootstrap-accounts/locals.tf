@@ -3,7 +3,7 @@
 locals {
   _client_ids = {
     for k, account in var.accounts :
-    k => lower(replace(replace(try(account.client_id, account.product_name), "_", "-"), " ", "-"))
+    k => lower(replace(replace(coalesce(account.client_id, account.product_name), "_", "-"), " ", "-"))
   }
 
   # Shared OIDC role name — change here to rename across all workspaces.
@@ -16,27 +16,28 @@ locals {
     for k, account in var.accounts : k => {
       account_id          = account.account_id
       client_id           = local._client_ids[k]
-      account_name        = try(account.account_name, account.account_id)
-      env                 = lower(try(account.env, "dev"))
-      product_name        = try(account.product_name, "platform")
-      region              = try(account.region, "us-east-1")
-      security_tier       = lower(try(account.security_tier, "standard"))
-      services            = try(account.services, [])
-      service_family      = lower(try(account.service_family, "platform"))
-      description         = try(account.description, "Terraform deployment for ${local._client_ids[k]} ${lower(try(account.env, "dev"))} (${account.account_id}).")
-      working_directory   = try(account.working_directory, "workspaces/account-bootstrap")
-      vcs_repo_identifier = try(account.vcs_repo_identifier, "bootstrap")
-      workspace_tags      = try(account.workspace_tags, [])
+      account_name        = coalesce(account.account_name, account.account_id)
+      env                 = lower(account.env)
+      product_name        = account.product_name
+      region              = account.region
+      security_tier       = lower(account.security_tier)
+      services            = account.services
+      service_family      = lower(account.service_family)
+      description         = coalesce(account.description, "Terraform deployment for ${local._client_ids[k]} ${lower(account.env)} (${account.account_id}).")
+      working_directory   = account.working_directory
+      vcs_repo_identifier = account.vcs_repo_identifier
+      workspace_tags      = account.workspace_tags
       workspace_class     = "bootstrap-account"
+      services_config     = account.services_config
       metadata = {
         client_id         = local._client_ids[k]
         aws_account_id    = account.account_id
-        aws_account_name  = try(account.account_name, account.account_id)
-        environment       = lower(try(account.env, "dev"))
-        aws_region        = try(account.region, "us-east-1")
-        security_tier     = lower(try(account.security_tier, "standard"))
-        service_family    = lower(try(account.service_family, "platform"))
-        selected_services = jsonencode(try(account.services, []))
+        aws_account_name  = coalesce(account.account_name, account.account_id)
+        environment       = lower(account.env)
+        aws_region        = account.region
+        security_tier     = lower(account.security_tier)
+        service_family    = lower(account.service_family)
+        selected_services = jsonencode(account.services)
       }
     }
   }
@@ -174,6 +175,46 @@ locals {
     },
   )
 
+  # ── Cross-service workspace name references ───────────────────────────────
+  # Injected so workspaces can read outputs from sibling service workspaces
+  # without manual HCP UI configuration.
+  service_link_variables = merge(
+    # secure_baseline_workspace_name — injected for vpc and rds
+    {
+      for k, pair in local.service_accounts :
+      "svc:${k}:secure_baseline_workspace_name" => {
+        workspace_id = tfe_workspace.service[k].id
+        key          = "secure_baseline_workspace_name"
+        value        = "${pair.account.client_id}-${pair.account.env}-secure-baseline"
+      }
+      if contains(["vpc", "rds"], pair.service)
+    },
+    # vpc_workspace_name — injected for rds
+    {
+      for k, pair in local.service_accounts :
+      "svc:${k}:vpc_workspace_name" => {
+        workspace_id = tfe_workspace.service[k].id
+        key          = "vpc_workspace_name"
+        value        = "${pair.account.client_id}-${pair.account.env}-vpc"
+      }
+      if pair.service == "rds"
+    },
+  )
+
+  # ── Per-service config variables (network config, etc.) ───────────────────
+  # Flattens services_config[service] entries into workspace variables for
+  # the matching service workspace.
+  service_config_variables = merge([
+    for k, pair in local.service_accounts : {
+      for var_key, var_value in lookup(pair.account.services_config, pair.service, {}) :
+      "svc:${k}:${var_key}" => {
+        workspace_id = tfe_workspace.service[k].id
+        key          = var_key
+        value        = var_value
+      }
+    }
+  ]...)
+
   # ── Unified metadata variables (bootstrap + team + service) ──────────────
   all_metadata_variables = merge(
     merge([
@@ -203,6 +244,8 @@ locals {
         }
       }
     ]...),
+    local.service_link_variables,
+    local.service_config_variables,
   )
 
   # ── Unified OIDC env variables (bootstrap + team + service) ──────────────
