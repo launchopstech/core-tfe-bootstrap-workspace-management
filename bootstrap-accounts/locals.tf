@@ -21,13 +21,13 @@ locals {
       product_name                = try(account.product_name, "platform")
       region                      = try(account.region, "us-east-1")
       security_tier               = lower(try(account.security_tier, "standard"))
-      services                    = coalescelist(try(account.services, null), [])
+      services                    = try(tolist(account.services), [])
       service_family              = lower(try(account.service_family, "platform"))
       description                 = try(account.description, "Terraform deployment for ${local._client_ids[k]} ${lower(try(account.env, "dev"))} (${account.account_id}).")
       working_directory           = try(account.working_directory, "workspaces/account-bootstrap")
       vcs_repo_identifier         = try(account.vcs_repo_identifier, "bootstrap")
       service_vcs_repo_identifier = try(account.service_vcs_repo_identifier, null)
-      workspace_tags              = coalescelist(try(account.workspace_tags, null), [])
+      workspace_tags              = try(tolist(account.workspace_tags), [])
       service_workspace_variables = try({
         for service_name, vars in account.service_workspace_variables :
         service_name => try({
@@ -44,7 +44,7 @@ locals {
         aws_region        = try(account.region, "us-east-1")
         security_tier     = lower(try(account.security_tier, "standard"))
         service_family    = lower(try(account.service_family, "platform"))
-        selected_services = jsonencode(coalescelist(try(account.services, null), []))
+        selected_services = jsonencode(try(tolist(account.services), []))
       }
     }
   }
