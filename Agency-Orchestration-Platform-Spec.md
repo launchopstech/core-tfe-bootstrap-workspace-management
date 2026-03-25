@@ -79,6 +79,7 @@ Behavior:
 - `service_vcs_repo_identifier` is optional in MVP; if omitted, child deployer workspaces default to this repo
 - `enable_aws_preflight` defaults to `false` so portal rollout can proceed before AWS OIDC trust is ready
 - `services` plus `service_workspace_variables` are the initial seed only for client-facing blueprints
+- `secure-baseline` requires `service_workspace_variables.secure-baseline.kms_key_arn`
 
 ### `project_requests_json`
 

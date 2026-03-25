@@ -257,7 +257,7 @@ The key for each entry is any stable unique identifier for that account entry. T
 | `client_admin_team_name` | no | HCP Terraform team name | If set, the named team gets write access to the account portal and any client-facing child deployer workspaces it creates |
 | `vcs_repo_identifier` | yes | `org/repo` format | GitHub repo the workspace VCS integration points at |
 | `service_vcs_repo_identifier` | no | `org/repo` format | Optional override repo for child deployer workspaces. If omitted, the portal uses the same repo as `vcs_repo_identifier` |
-| `service_workspace_variables` | no | map keyed by service name | Terraform variables used to seed agency-managed workspaces and the initial portal request document, for example network CIDRs for `vpc` |
+| `service_workspace_variables` | no | map keyed by service name | Terraform variables used to seed agency-managed workspaces and the initial portal request document, for example `kms_key_arn` for `secure-baseline` and network CIDRs for `vpc` |
 | `working_directory` | no | default: `workspaces/account-bootstrap` | Working directory inside the VCS repo for the bootstrap workspace |
 | `workspace_tags` | no | list of strings, default: `[]` | Additional HCP Terraform tags to apply to the workspace |
 
@@ -269,6 +269,7 @@ The key for each entry is any stable unique identifier for that account entry. T
 - `vcs_repo_identifier` must be set to a real repo — cannot be the default placeholder
 - `service_vcs_repo_identifier` is optional; the portal defaults to `vcs_repo_identifier` when it is omitted
 - `enable_aws_preflight = true` requires the target AWS account to already trust HCP Terraform OIDC for `arn:aws:iam::<account_id>:role/TerraformDeployRole`
+- `secure-baseline` requires `service_workspace_variables["secure-baseline"].kms_key_arn`
 - `vpc` requires `service_workspace_variables["vpc"].cidr_block`, `azs`, `private_subnets`, and `public_subnets`
 - `rds` requires both `secure-baseline` and `vpc` in `services`
 - if `rds` is enabled, `service_workspace_variables["vpc"].database_subnets` is also required so the VPC workspace can create a DB subnet group
