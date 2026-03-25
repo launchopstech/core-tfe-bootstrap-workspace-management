@@ -14,24 +14,24 @@ module "db" {
 
   identifier = "${var.client_id}-${var.environment}-db"
 
-  engine               = var.engine
-  engine_version       = var.engine_version
-  family               = var.parameter_group_family
-  major_engine_version = var.major_engine_version
-  instance_class       = var.instance_class
-  allocated_storage    = var.allocated_storage
+  engine                = var.engine
+  engine_version        = var.engine_version
+  family                = var.parameter_group_family
+  major_engine_version  = var.major_engine_version
+  instance_class        = var.instance_class
+  allocated_storage     = var.allocated_storage
   max_allocated_storage = var.max_allocated_storage
 
   # Secure defaults — not overridable by callers
-  storage_encrypted                  = true
-  kms_key_id                         = var.kms_key_arn
-  manage_master_user_password        = true
+  storage_encrypted                   = true
+  kms_key_id                          = var.kms_key_arn
+  manage_master_user_password         = true
   iam_database_authentication_enabled = true
-  deletion_protection                = true
-  publicly_accessible                = false
-  copy_tags_to_snapshot              = true
-  backup_retention_period            = max(var.backup_retention_days, 14)
-  delete_automated_backups           = false
+  deletion_protection                 = true
+  publicly_accessible                 = false
+  copy_tags_to_snapshot               = true
+  backup_retention_period             = max(var.backup_retention_days, 14)
+  delete_automated_backups            = false
 
   multi_az = var.environment == "prod" ? true : var.multi_az
 

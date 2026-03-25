@@ -15,9 +15,9 @@ module "vpc" {
   name = "${var.client_id}-${var.environment}"
   cidr = var.cidr_block
 
-  azs             = var.azs
-  private_subnets = var.private_subnets
-  public_subnets  = var.public_subnets
+  azs              = var.azs
+  private_subnets  = var.private_subnets
+  public_subnets   = var.public_subnets
   database_subnets = var.database_subnets
 
   # NAT Gateway — single for non-prod, one-per-AZ for prod

@@ -1,6 +1,6 @@
 ################################################################################
 # OIDC dynamic credentials (TFC_AWS_PROVIDER_AUTH + TFC_AWS_RUN_ROLE_ARN)
-# Applied to bootstrap, team, and service workspaces.
+# Applied to bootstrap and agency-managed project workspaces.
 ################################################################################
 
 resource "tfe_variable" "workspace_oidc_env" {
@@ -11,6 +11,16 @@ resource "tfe_variable" "workspace_oidc_env" {
   value        = each.value.value
   category     = "env"
   description  = "WRITTEN BY AUTOMATION: HCP Terraform OIDC dynamic credential config."
+}
+
+resource "tfe_variable" "account_portal_contract" {
+  for_each = local.account_portal_contract_variables
+
+  workspace_id = each.value.workspace_id
+  key          = each.value.key
+  value        = each.value.value
+  category     = "terraform"
+  description  = "WRITTEN BY AUTOMATION: Account portal control-plane contract."
 }
 
 resource "tfe_variable" "service_workspace_inputs" {
