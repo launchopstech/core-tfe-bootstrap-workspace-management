@@ -289,12 +289,13 @@ Resources:
 
           # ── Explicit deny: S3 data exfiltration ──────────────────────────────
           # Prevents reading object data or making buckets publicly accessible.
+          # Note: s3:PutBucketPolicy is allowed because secure-baseline must set
+          # bucket policies for CloudTrail and Config log delivery.
           - Sid: DenyS3DataExfiltration
             Effect: Deny
             Action:
               - s3:GetObject
               - s3:GetObjectVersion
-              - s3:PutBucketPolicy
               - s3:PutBucketAcl
               - s3:PutObjectAcl
             Resource: "*"
@@ -327,6 +328,7 @@ Resources:
         Version: "2012-10-17"
         Statement:
           # Bootstrap workspaces: bootstrap-<ClientId>-<env>
+          # Agency-managed deployers: <ClientId>-<env>-<service> (e.g. secure-baseline)
           - Sid: AllowBootstrapProject
             Effect: Allow
             Principal:
@@ -336,11 +338,17 @@ Resources:
               StringEquals:
                 app.terraform.io:aud: aws.workload.identity
               StringLike:
-                app.terraform.io:sub: !Sub
-                  - "organization:${Org}:project:${BootstrapProject}:workspace:bootstrap-${Client}-*:run_phase:*"
-                  - Org: !Ref HCPOrganization
-                    BootstrapProject: !Ref HCPBootstrapProject
-                    Client: !Ref ClientId
+                app.terraform.io:sub:
+                  - !Sub
+                    - "organization:${Org}:project:${BootstrapProject}:workspace:bootstrap-${Client}-*:run_phase:*"
+                    - Org: !Ref HCPOrganization
+                      BootstrapProject: !Ref HCPBootstrapProject
+                      Client: !Ref ClientId
+                  - !Sub
+                    - "organization:${Org}:project:${BootstrapProject}:workspace:${Client}-*:run_phase:*"
+                    - Org: !Ref HCPOrganization
+                      BootstrapProject: !Ref HCPBootstrapProject
+                      Client: !Ref ClientId
           # Team and service workspaces: <ClientId>-<env> and <ClientId>-<env>-<service>
           - Sid: AllowTeamProject
             Effect: Allow
