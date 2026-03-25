@@ -3,7 +3,7 @@
 locals {
   _client_ids = {
     for k, account in var.accounts :
-    k => lower(replace(replace(try(account.client_id, account.product_name), "_", "-"), " ", "-"))
+    k => lower(replace(replace(coalesce(account.client_id, account.product_name), "_", "-"), " ", "-"))
   }
 
   # Shared OIDC role name — change here to rename across all workspaces.
@@ -16,27 +16,27 @@ locals {
     for k, account in var.accounts : k => {
       account_id          = account.account_id
       client_id           = local._client_ids[k]
-      account_name        = try(account.account_name, account.account_id)
-      env                 = lower(try(account.env, "dev"))
-      product_name        = try(account.product_name, "platform")
-      region              = try(account.region, "us-east-1")
-      security_tier       = lower(try(account.security_tier, "standard"))
-      services            = try(account.services, [])
-      service_family      = lower(try(account.service_family, "platform"))
-      description         = try(account.description, "Terraform deployment for ${local._client_ids[k]} ${lower(try(account.env, "dev"))} (${account.account_id}).")
-      working_directory   = try(account.working_directory, "workspaces/account-bootstrap")
-      vcs_repo_identifier = try(account.vcs_repo_identifier, "bootstrap")
-      workspace_tags      = try(account.workspace_tags, [])
+      account_name        = coalesce(account.account_name, account.account_id)
+      env                 = lower(account.env)
+      product_name        = account.product_name
+      region              = account.region
+      security_tier       = lower(account.security_tier)
+      services            = account.services
+      service_family      = lower(account.service_family)
+      description         = coalesce(account.description, "Terraform deployment for ${local._client_ids[k]} ${lower(account.env)} (${account.account_id}).")
+      working_directory   = account.working_directory
+      vcs_repo_identifier = account.vcs_repo_identifier
+      workspace_tags      = account.workspace_tags
       workspace_class     = "bootstrap-account"
       metadata = {
         client_id         = local._client_ids[k]
         aws_account_id    = account.account_id
-        aws_account_name  = try(account.account_name, account.account_id)
-        environment       = lower(try(account.env, "dev"))
-        aws_region        = try(account.region, "us-east-1")
-        security_tier     = lower(try(account.security_tier, "standard"))
-        service_family    = lower(try(account.service_family, "platform"))
-        selected_services = jsonencode(try(account.services, []))
+        aws_account_name  = coalesce(account.account_name, account.account_id)
+        environment       = lower(account.env)
+        aws_region        = account.region
+        security_tier     = lower(account.security_tier)
+        service_family    = lower(account.service_family)
+        selected_services = jsonencode(account.services)
       }
     }
   }

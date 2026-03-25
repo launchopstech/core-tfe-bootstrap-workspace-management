@@ -10,30 +10,40 @@ Parameters:
     Default: "core-aws"
     Description: Your HCP Terraform organization name.
 
-  HCPProjectName:
+  HCPBootstrapProject:
     Type: String
     Description: >
-      HCP Terraform project name to restrict access to. Must be an explicit
-      project name — wildcards are not permitted for production deployments.
+      HCP Terraform project that hosts bootstrap workspaces
+      (e.g. bootstrap-dev). Trust is scoped to bootstrap-<ClientId>-*
+      workspaces inside this project.
     AllowedPattern: "^[^*]+$"
-    ConstraintDescription: Wildcard (*) is not allowed. Specify an explicit project name.
+    ConstraintDescription: Must be an explicit project name — no wildcards.
 
-  WorkspaceName:
+  HCPTeamProject:
     Type: String
     Description: >
-      HCP Terraform workspace name to restrict access to. Must be an explicit
-      workspace name or prefix pattern (e.g. bootstrap-*). Wildcards that match
-      all workspaces are not permitted.
-    AllowedPattern: "^[^*].*"
-    ConstraintDescription: >
-      Must start with a non-wildcard character. Use a specific name or
-      prefix (e.g. bootstrap-*) rather than a bare *.
+      HCP Terraform project that hosts team and service workspaces
+      (e.g. team-dev). Trust is scoped to <ClientId>-* workspaces
+      inside this project.
+    AllowedPattern: "^[^*]+$"
+    ConstraintDescription: Must be an explicit project name — no wildcards.
+
+  ClientId:
+    Type: String
+    Description: >
+      Client identifier (e.g. test-client). Controls which workspace names
+      are trusted per project:
+        bootstrap project  → bootstrap-<ClientId>-*
+        team project       → <ClientId>-*  (covers <ClientId>-<env> and
+                             <ClientId>-<env>-<service>)
+    AllowedPattern: "^[a-z0-9][a-z0-9-]+[a-z0-9]$"
+    ConstraintDescription: Must be lowercase alphanumeric with hyphens (no leading/trailing hyphens).
 
   KMSAliasName:
     Type: String
     Description: >
       Alias for the platform KMS key. Format: alias/<name>.
-      Use a name that reflects the client/environment (e.g. alias/acme-prod-platform).
+      Recommended: alias/<ClientId>-<env>-platform (e.g. alias/test-client-dev-platform).
     AllowedPattern: "^alias/[a-zA-Z0-9:/_-]+$"
     ConstraintDescription: Must begin with alias/ and contain only alphanumeric characters, colons, slashes, underscores, or hyphens.
 
@@ -135,7 +145,8 @@ Resources:
             Resource: "*"
 
           # ── IAM — service roles, instance profiles, OIDC providers ───────────
-          # Excludes user/group/access-key management to block privilege escalation.
+          # Excludes user/group/access-key management (see DenyPrivilegeEscalation).
+          # PassRole is scoped to specific AWS services via a condition.
           - Sid: IAMServiceRolesAndPolicies
             Effect: Allow
             Action:
@@ -156,7 +167,6 @@ Resources:
               - iam:GetRolePolicy
               - iam:ListRolePolicies
               - iam:ListAttachedRolePolicies
-              - iam:PassRole
               - iam:CreateInstanceProfile
               - iam:DeleteInstanceProfile
               - iam:GetInstanceProfile
@@ -187,9 +197,24 @@ Resources:
               - iam:GetServiceLinkedRoleDeletionStatus
             Resource: "*"
 
-          # ── Explicit deny: privilege escalation vectors ───────────────────────
-          # Prevents Terraform from creating human IAM users, access keys, or
-          # console logins — actions that could be used to backdoor the account.
+          # ── IAM PassRole — scoped to the services Terraform manages ──────────
+          # Prevents passing a privileged role to arbitrary AWS services.
+          - Sid: IAMPassRole
+            Effect: Allow
+            Action: iam:PassRole
+            Resource: "*"
+            Condition:
+              StringEquals:
+                iam:PassedToService:
+                  - ec2.amazonaws.com
+                  - eks.amazonaws.com
+                  - rds.amazonaws.com
+                  - config.amazonaws.com
+                  - cloudtrail.amazonaws.com
+                  - elasticloadbalancing.amazonaws.com
+                  - lambda.amazonaws.com
+
+          # ── Explicit deny: privilege escalation via IAM users/groups ─────────
           - Sid: DenyPrivilegeEscalation
             Effect: Deny
             Action:
@@ -210,8 +235,85 @@ Resources:
               - iam:PutGroupPolicy
             Resource: "*"
 
+          # ── Explicit deny: self-modification of TerraformDeployRole ──────────
+          # Prevents Terraform from backdooring or escalating its own role.
+          - Sid: DenySelfModification
+            Effect: Deny
+            Action:
+              - iam:UpdateAssumeRolePolicy
+              - iam:AttachRolePolicy
+              - iam:DetachRolePolicy
+              - iam:PutRolePolicy
+              - iam:DeleteRolePolicy
+              - iam:DeleteRole
+            Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/TerraformDeployRole"
+
+          # ── Explicit deny: secret and parameter reads ─────────────────────────
+          # Terraform manages secret/parameter lifecycle — it should not read values.
+          - Sid: DenySecretAndParameterRead
+            Effect: Deny
+            Action:
+              - secretsmanager:GetSecretValue
+              - secretsmanager:BatchGetSecretValue
+              - ssm:GetParameter
+              - ssm:GetParameters
+              - ssm:GetParametersByPath
+              - ssm:GetParameterHistory
+            Resource: "*"
+
+          # ── Explicit deny: KMS key policy and deletion ────────────────────────
+          # Prevents rewriting KMS key policies to grant external access.
+          - Sid: DenyKMSPolicyModification
+            Effect: Deny
+            Action:
+              - kms:PutKeyPolicy
+              - kms:ScheduleKeyDeletion
+              - kms:DisableKey
+            Resource: "*"
+
+          # ── Explicit deny: audit trail tampering ──────────────────────────────
+          # Prevents blinding CloudTrail/Config/GuardDuty before an attack.
+          - Sid: DenyAuditTamper
+            Effect: Deny
+            Action:
+              - cloudtrail:StopLogging
+              - cloudtrail:DeleteTrail
+              - cloudtrail:UpdateTrail
+              - config:DeleteConfigurationRecorder
+              - config:StopConfigurationRecorder
+              - config:DeleteDeliveryChannel
+              - guardduty:DeleteDetector
+              - guardduty:DisassociateFromMasterAccount
+              - securityhub:DisableSecurityHub
+            Resource: "*"
+
+          # ── Explicit deny: S3 data exfiltration ──────────────────────────────
+          # Prevents reading object data or making buckets publicly accessible.
+          - Sid: DenyS3DataExfiltration
+            Effect: Deny
+            Action:
+              - s3:GetObject
+              - s3:GetObjectVersion
+              - s3:PutBucketPolicy
+              - s3:PutBucketAcl
+              - s3:PutObjectAcl
+            Resource: "*"
+
+          # ── Explicit deny: EC2 snapshot/image sharing ─────────────────────────
+          # Prevents exfiltrating data via cross-account snapshot sharing.
+          - Sid: DenyEC2DataExfiltration
+            Effect: Deny
+            Action:
+              - ec2:ModifySnapshotAttribute
+              - ec2:ModifyImageAttribute
+              - ec2:CopySnapshot
+            Resource: "*"
+
   ##############################################################################
   # TerraformDeployRole — assumed by HCP Terraform workspaces via OIDC
+  #
+  # Two trust statements — one per HCP project — eliminate the project:*
+  # wildcard while covering both bootstrap and team/service workspace types.
   ##############################################################################
   TerraformDeployRole:
     Type: AWS::IAM::Role
@@ -224,7 +326,8 @@ Resources:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
-          - Sid: AllowHCPTerraformOIDC
+          # Bootstrap workspaces: bootstrap-<ClientId>-<env>
+          - Sid: AllowBootstrapProject
             Effect: Allow
             Principal:
               Federated: !GetAtt HCPTerraformOIDCProvider.Arn
@@ -234,10 +337,25 @@ Resources:
                 app.terraform.io:aud: aws.workload.identity
               StringLike:
                 app.terraform.io:sub: !Sub
-                  - "organization:${Org}:project:${Project}:workspace:${Workspace}:run_phase:*"
+                  - "organization:${Org}:project:${BootstrapProject}:workspace:bootstrap-${Client}-*:run_phase:*"
                   - Org: !Ref HCPOrganization
-                    Project: !Ref HCPProjectName
-                    Workspace: !Ref WorkspaceName
+                    BootstrapProject: !Ref HCPBootstrapProject
+                    Client: !Ref ClientId
+          # Team and service workspaces: <ClientId>-<env> and <ClientId>-<env>-<service>
+          - Sid: AllowTeamProject
+            Effect: Allow
+            Principal:
+              Federated: !GetAtt HCPTerraformOIDCProvider.Arn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                app.terraform.io:aud: aws.workload.identity
+              StringLike:
+                app.terraform.io:sub: !Sub
+                  - "organization:${Org}:project:${TeamProject}:workspace:${Client}-*:run_phase:*"
+                  - Org: !Ref HCPOrganization
+                    TeamProject: !Ref HCPTeamProject
+                    Client: !Ref ClientId
       ManagedPolicyArns:
         - !Ref TerraformDeployPolicy
       Tags:

@@ -1,6 +1,20 @@
 variable "accounts" {
-  description = "Map of AWS account metadata keyed by account ID."
-  type        = map(any)
+  description = "Map of AWS account metadata keyed by {client_id}-{env}."
+  type = map(object({
+    account_id          = string
+    client_id           = optional(string)
+    account_name        = optional(string)
+    env                 = optional(string, "dev")
+    product_name        = optional(string, "platform")
+    region              = optional(string, "us-east-1")
+    security_tier       = optional(string, "standard")
+    services            = optional(list(string), [])
+    service_family      = optional(string, "platform")
+    description         = optional(string)
+    working_directory   = optional(string, "workspaces/account-bootstrap")
+    vcs_repo_identifier = optional(string, "bootstrap")
+    workspace_tags      = optional(list(string), [])
+  }))
 }
 
 variable "aws_core_oauth_token_id" {
