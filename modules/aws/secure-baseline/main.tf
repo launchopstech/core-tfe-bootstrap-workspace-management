@@ -76,7 +76,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "logs" {
     }
 
     transition {
-      days          = 365
+      days          = 180
       storage_class = "GLACIER"
     }
 
