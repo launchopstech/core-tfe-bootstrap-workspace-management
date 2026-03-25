@@ -10,7 +10,7 @@ It now owns:
 
 - metadata-driven account onboarding through `accounts.tf.json`
 - bootstrap workspaces for account bootstrap and agency-only operations
-- account portal workspaces keyed by AWS `account_id`
+- account portal workspaces keyed by `client_id` + `env`
 - seeded project requests through `project_requests_json`
 - agency-managed baseline workspaces and client-facing project workspaces
 - shared variable-set inheritance, metadata persistence, notifications, and HCP Terraform OIDC wiring
@@ -37,7 +37,7 @@ Already implemented in this repo:
 - [x] email failure notifications for control-plane workspaces
 - [x] runtime roots for `account-bootstrap`, `secure-baseline`, `vpc`, and `rds`
 - [x] account portal root at `workspaces/account-portal`
-- [x] account portal naming keyed by `account_id`
+- [x] account portal naming keyed by `client_id` + `env`
 - [x] account-portal seeding through `project_requests_json`
 - [x] basic client-admin team access for the account portal and portal-created child workspaces
 
@@ -70,10 +70,10 @@ Supported orchestration fields:
 
 Behavior:
 
-- bootstrap workspace name: `bootstrap-<client_id>-<env>-<account_id>`
-- account portal workspace name: `<account_id>`
-- agency-managed project workspace name: `<account_id>-secure-baseline`
-- client-facing project workspace name: `<account_id>-<project_key>`
+- bootstrap workspace name: `bootstrap-<client_id>-<env>`
+- account portal workspace name: `<client_id>-<env>`
+- agency-managed project workspace name: `<client_id>-<env>-secure-baseline`
+- client-facing project workspace name: `<client_id>-<env>-<project_key>`
 - `service_vcs_repo_identifier` is optional in MVP; if omitted, child project workspaces default to this repo
 - `services` plus `service_workspace_variables` are the initial seed only for client-facing blueprints
 
@@ -168,8 +168,8 @@ MVP roots:
 - [x] make `service_vcs_repo_identifier` optional by defaulting project workspaces to the control-plane repo
 - [x] add `project_requests_json` as the account-portal contract
 - [x] create `workspaces/account-portal`
-- [x] convert the client-facing placeholder workspace into a real account portal keyed by `account_id`
-- [x] fix visible naming and derived dependency workspace names to use `account_id`
+- [x] convert the client-facing placeholder workspace into a real account portal keyed by environment context
+- [x] fix visible naming and derived dependency workspace names to use the environment-based workspace prefix
 - [x] support account portal creation plus `vpc` and `rds` child-project creation
 - [x] keep `secure-baseline` agency-managed in the hidden project path
 - [x] add basic client-admin access and approval-gated client-facing workspaces (`auto_apply = false`)
@@ -200,9 +200,9 @@ MVP roots:
 
 ## MVP Acceptance Tests
 
-- [ ] one edit to `accounts.tf.json` creates a unique bootstrap workspace and account portal for a new AWS account
-- [ ] two accounts with the same `client_id` and `env` but different `account_id` values do not collide
-- [ ] a client admin updates `project_requests_json` to request `vpc`, and the portal creates `<account_id>-vpc` with inherited region, tier, IAM role, and metadata
+- [ ] one edit to `accounts.tf.json` creates a bootstrap workspace and account portal for a new client environment
+- [ ] a shared AWS account can appear in both `dev` and `workbench` without workspace-name collisions
+- [ ] a client admin updates `project_requests_json` to request `vpc`, and the portal creates `<client_id>-<env>-vpc` with inherited region, tier, IAM role, and metadata
 - [ ] an `rds` request fails with a clear validation error unless `vpc` and required inputs already exist
 - [ ] bootstrap workspaces stay hidden from the client team while client-facing applies remain approval-gated
 - [ ] onboarding succeeds through `account-bootstrap`, `secure-baseline`, `vpc`, and `rds`
@@ -220,7 +220,7 @@ Explicitly not release blockers for MVP:
 - HCP Terraform remains the primary execution engine and state backend
 - day-1 users are agency operators plus one client-admin team per account
 - phase 1 self-service is HCP workspace-variable/API driven, not a Git-backed client repo flow
-- one visible account portal maps to one AWS account ID
+- visible workspace names are environment-scoped, so the same AWS account can be reused across multiple environments when needed
 - no repo split is required before MVP acceptance
 
 ## Historical References

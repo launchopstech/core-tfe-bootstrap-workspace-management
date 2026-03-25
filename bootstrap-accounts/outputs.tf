@@ -40,7 +40,7 @@ output "team_workspaces" {
 }
 
 output "agency_project_workspaces" {
-  description = "Agency-managed project workspaces keyed by {account_id}-{service}."
+  description = "Agency-managed project workspaces keyed by {workspace_prefix}-{service}."
   value = {
     for k, workspace in tfe_workspace.service : k => {
       id                = workspace.id
