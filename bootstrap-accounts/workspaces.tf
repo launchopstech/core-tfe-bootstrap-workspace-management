@@ -1,11 +1,11 @@
 ################################################################################
-# Bootstrap workspaces (agency-internal, one per account)
+# Bootstrap workspaces (agency-internal, one per account entry)
 ################################################################################
 
 resource "tfe_workspace" "bootstrap_account" {
   for_each = local.normalized_accounts
 
-  name                = "bootstrap-${each.value.client_id}-${each.value.env}-${each.value.account_id}"
+  name                = "bootstrap-${each.value.workspace_prefix}"
   description         = each.value.description
   allow_destroy_plan  = true
   auto_apply          = true
@@ -75,15 +75,15 @@ resource "tfe_notification_configuration" "bootstrap_failure" {
 }
 
 ################################################################################
-# Account portal workspaces (client-facing, one per account)
+# Account portal workspaces (client-facing, one per account entry)
 # Resource name remains "team" to avoid needless state-address churn.
 ################################################################################
 
 resource "tfe_workspace" "team" {
   for_each = local.normalized_accounts
 
-  name                          = each.value.account_id
-  description                   = "Account portal for ${each.value.client_id} ${each.value.env} (${each.value.account_id}). Client admins manage project requests here."
+  name                          = each.value.workspace_prefix
+  description                   = "Account portal for ${each.value.client_id} ${each.value.env}. Client admins manage project requests here."
   allow_destroy_plan            = false
   auto_apply                    = false
   speculative_enabled           = true

@@ -11,6 +11,7 @@ terraform {
 locals {
   client_admin_team_name = trimspace(var.client_admin_team_name)
   notification_emails    = try(tolist(jsondecode(var.notification_emails_json)), [])
+  workspace_prefix       = "${var.client_id}-${var.environment}"
   account_name           = coalesce(var.aws_account_name, var.aws_account_id)
   normalized_tier        = coalesce(var.security_tier, "")
   normalized_family      = coalesce(var.service_family, "platform")
@@ -199,14 +200,14 @@ locals {
             map_key      = "${project_key}:secure_baseline_workspace_name"
             workspace_id = workspace.id
             key          = "secure_baseline_workspace_name"
-            value        = "${var.aws_account_id}-secure-baseline"
+            value        = "${local.workspace_prefix}-secure-baseline"
           },
         ],
         project_key == "rds" ? [{
           map_key      = "${project_key}:vpc_workspace_name"
           workspace_id = workspace.id
           key          = "vpc_workspace_name"
-          value        = "${var.aws_account_id}-vpc"
+          value        = "${local.workspace_prefix}-vpc"
         }] : [],
         [
           for input_key, input_value in local.enabled_projects[project_key].inputs : {
@@ -256,7 +257,7 @@ data "tfe_team" "client_admin" {
 resource "tfe_workspace" "project" {
   for_each = local.enabled_projects
 
-  name                          = "${var.aws_account_id}-${each.key}"
+  name                          = "${local.workspace_prefix}-${each.key}"
   description                   = "Project workspace for ${var.client_id} ${var.environment} ${each.key}."
   allow_destroy_plan            = false
   auto_apply                    = false

@@ -1,6 +1,8 @@
 # Agency AWS Terraform Implementation TODO
 
 > Historical reference. The canonical architecture and phased roadmap now live in [Agency-Orchestration-Platform-Spec.md](./Agency-Orchestration-Platform-Spec.md).
+>
+> Naming note: this document still includes some superseded account-ID-based naming examples from an intermediate design. The active implementation uses environment-scoped visible workspace names such as `<client_id>-<env>` and `<client_id>-<env>-<stack>`.
 
 This checklist converts the framework spec into an execution plan.
 

@@ -284,8 +284,8 @@ Recommended isolation model:
 Naming convention:
 
 - control plane workspace: `bootstrap-account-workspace-management-<env>`
-- client bootstrap workspace: `bootstrap-<client>-<env>-<account_id>`
-- runtime workspace: `aws-<client>-<env>-<stack>`
+- client bootstrap workspace: `bootstrap-<client>-<env>`
+- runtime workspace: `<client>-<env>-<stack>`
 
 Sample Terraform Cloud workspace extension:
 

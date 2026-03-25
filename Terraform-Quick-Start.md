@@ -72,7 +72,7 @@ terraform apply
 
 This project now manages bootstrap metadata directly in HCP Terraform:
 
-- workspace names follow `bootstrap-<client_id>-<env>-<account_id>`
+- workspace names follow the environment-scoped pattern `bootstrap-<client_id>-<env>`
 - workspace tags include client, environment, security tier, and service family
 - workspace metadata is stored as Terraform variables on each workspace
 - shared defaults are attached through HCP Terraform variable sets

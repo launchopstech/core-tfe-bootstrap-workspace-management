@@ -36,6 +36,7 @@ locals {
       account_key                 = k
       account_id                  = account.account_id
       client_id                   = local._client_ids[k]
+      workspace_prefix            = "${local._client_ids[k]}-${lower(try(account.env, "dev"))}"
       account_name                = try(account.account_name, account.account_id)
       env                         = lower(try(account.env, "dev"))
       product_name                = try(account.product_name, "platform")
@@ -149,14 +150,14 @@ locals {
     ]))
   }
 
-  # Flattened map: "{account_id}-{service}" → { account, service }.
+  # Flattened map: "{workspace-prefix}-{service}" → { account, service }.
   # Only agency-managed project workspaces are created directly here; client
   # requestable blueprints are seeded into the account portal.
   service_accounts = {
     for pair in flatten([
       for k, account in local.normalized_accounts : [
         for svc in account.services : {
-          key         = "${account.account_id}-${svc}"
+          key         = "${account.workspace_prefix}-${svc}"
           account_key = k
           account     = account
           service     = svc
@@ -460,7 +461,7 @@ locals {
       "svc:${k}:secure_baseline_workspace_name" => {
         workspace_id = tfe_workspace.service[k].id
         key          = "secure_baseline_workspace_name"
-        value        = jsonencode("${pair.account.account_id}-secure-baseline")
+        value        = jsonencode("${pair.account.workspace_prefix}-secure-baseline")
       }
       if contains(lookup(local.service_dependency_requirements, pair.service, toset([])), "secure-baseline")
     },
@@ -469,7 +470,7 @@ locals {
       "svc:${k}:vpc_workspace_name" => {
         workspace_id = tfe_workspace.service[k].id
         key          = "vpc_workspace_name"
-        value        = jsonencode("${pair.account.account_id}-vpc")
+        value        = jsonencode("${pair.account.workspace_prefix}-vpc")
       }
       if contains(lookup(local.service_dependency_requirements, pair.service, toset([])), "vpc")
     },
