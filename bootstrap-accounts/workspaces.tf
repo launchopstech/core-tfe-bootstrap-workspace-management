@@ -114,8 +114,8 @@ resource "tfe_notification_configuration" "team_failure" {
 }
 
 ################################################################################
-# Service workspaces (client-facing, one per service per account)
-# Named: {client_id}-{env}-{service}  e.g. test-client-dev-secure-baseline
+# Service workspaces (client-facing, one per service per opted-in account)
+# Opt-in is controlled per account via service_vcs_repo_identifier.
 ################################################################################
 
 resource "tfe_workspace" "service" {
@@ -145,15 +145,30 @@ resource "tfe_workspace" "service" {
   ]))
 
   vcs_repo {
-    identifier     = each.value.account.vcs_repo_identifier
+    identifier     = each.value.account.service_vcs_repo_identifier
     branch         = "main"
     oauth_token_id = var.aws_core_oauth_token_id
   }
 
   lifecycle {
     precondition {
+      condition     = trimspace(each.value.account.service_vcs_repo_identifier) != ""
+      error_message = "Service '${each.value.service}' for '${each.key}' requires service_vcs_repo_identifier to point at the service workspace repo."
+    }
+
+    precondition {
       condition     = contains(keys(local.service_working_dirs), each.value.service)
       error_message = "Service '${each.value.service}' for '${each.key}' is not a known service. Allowed: ${join(", ", keys(local.service_working_dirs))}."
+    }
+
+    precondition {
+      condition     = length(local.service_missing_dependencies[each.key]) == 0
+      error_message = "Service '${each.value.service}' for '${each.key}' is missing required dependent services: ${join(", ", sort(tolist(local.service_missing_dependencies[each.key])))}."
+    }
+
+    precondition {
+      condition     = length(local.service_missing_required_variables[each.key]) == 0
+      error_message = "Service '${each.value.service}' for '${each.key}' is missing required service_workspace_variables: ${join(", ", sort(tolist(local.service_missing_required_variables[each.key])))}."
     }
   }
 }
