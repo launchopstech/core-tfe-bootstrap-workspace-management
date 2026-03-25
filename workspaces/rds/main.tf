@@ -37,8 +37,7 @@ locals {
   kms_key_arn                = nonsensitive(data.tfe_outputs.secure_baseline.values.kms_key_arn)
   vpc_id                     = nonsensitive(data.tfe_outputs.vpc.values.vpc_id)
   database_subnet_group_name = nonsensitive(data.tfe_outputs.vpc.values.database_subnet_group_name)
-  private_subnet_ids         = nonsensitive(data.tfe_outputs.vpc.values.private_subnet_ids)
-  vpc_cidr_block             = nonsensitive(data.tfe_outputs.vpc.values.vpc_cidr_block)
+  private_subnet_cidrs       = nonsensitive(data.tfe_outputs.vpc.values.private_subnet_cidrs)
 }
 
 module "rds" {
@@ -61,6 +60,6 @@ module "rds" {
   kms_key_arn                = local.kms_key_arn
   vpc_id                     = local.vpc_id
   database_subnet_group_name = local.database_subnet_group_name
-  private_subnet_cidrs       = [local.vpc_cidr_block]
+  private_subnet_cidrs       = local.private_subnet_cidrs
   tags                       = var.tags
 }

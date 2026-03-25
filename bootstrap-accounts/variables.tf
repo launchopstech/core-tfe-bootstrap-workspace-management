@@ -1,5 +1,5 @@
 variable "accounts" {
-  description = "Map of AWS account metadata keyed by account ID."
+  description = "Map of AWS account metadata keyed by a stable unique account entry key."
   type        = map(any)
 }
 
@@ -45,4 +45,14 @@ variable "notification_emails" {
   description = "Email addresses to notify on workspace run failures."
   type        = list(string)
   default     = []
+}
+
+variable "service_working_dirs" {
+  description = "Supported service workspace working directories. Defaults to the test roots present in this repo."
+  type        = map(string)
+  default = {
+    "secure-baseline" = "workspaces/secure-baseline"
+    "vpc"             = "workspaces/vpc"
+    "rds"             = "workspaces/rds"
+  }
 }

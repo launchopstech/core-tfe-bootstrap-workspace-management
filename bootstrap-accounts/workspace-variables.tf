@@ -12,3 +12,14 @@ resource "tfe_variable" "workspace_oidc_env" {
   category     = "env"
   description  = "WRITTEN BY AUTOMATION: HCP Terraform OIDC dynamic credential config."
 }
+
+resource "tfe_variable" "service_workspace_inputs" {
+  for_each = local.service_workspace_input_variables
+
+  workspace_id = each.value.workspace_id
+  key          = each.value.key
+  value        = each.value.value
+  category     = "terraform"
+  hcl          = true
+  description  = "WRITTEN BY AUTOMATION: Service workspace bootstrap input."
+}

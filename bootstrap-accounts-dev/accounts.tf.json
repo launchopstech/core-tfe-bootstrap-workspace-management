@@ -12,9 +12,7 @@
         "vcs_repo_identifier": "bomatronix/core-tfe-bootstrap-workspace-management",
         "working_directory": "workspaces/account-bootstrap",
         "services": [
-          "account-bootstrap",
-          "secure-baseline",
-          "vpc"
+          "account-bootstrap"
         ]
       }
     }
