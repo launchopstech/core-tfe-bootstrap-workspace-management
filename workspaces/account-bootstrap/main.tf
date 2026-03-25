@@ -13,8 +13,17 @@ terraform {
 # like secure-baseline, vpc, and rds run. The check is opt-in so portal setup
 # can proceed before AWS trust is ready.
 
+# This provider is only consumed by the conditional aws_preflight module below.
+# When preflight is disabled, Terraform does not need to initialize AWS auth.
 provider "aws" {
-  region = var.aws_region
+  alias                       = "preflight"
+  region                      = var.aws_region
+  access_key                  = var.enable_aws_preflight ? null : "bootstrap-preflight-disabled"
+  secret_key                  = var.enable_aws_preflight ? null : "bootstrap-preflight-disabled"
+  skip_credentials_validation = var.enable_aws_preflight ? false : true
+  skip_metadata_api_check     = var.enable_aws_preflight ? false : true
+  skip_requesting_account_id  = var.enable_aws_preflight ? false : true
+  skip_region_validation      = var.enable_aws_preflight ? false : true
 
   # Authentication via HCP Terraform Dynamic Provider Credentials (OIDC).
   # TFC_AWS_PROVIDER_AUTH and TFC_AWS_RUN_ROLE_ARN are set by the control plane.
@@ -28,19 +37,16 @@ provider "aws" {
   }
 }
 
-# Verifies OIDC auth is working and the correct account is targeted when the
-# preflight is enabled for this account entry.
-data "aws_caller_identity" "current" {
+module "aws_preflight" {
   count = var.enable_aws_preflight ? 1 : 0
 
-  lifecycle {
-    postcondition {
-      condition     = self.account_id == var.aws_account_id
-      error_message = "OIDC resolved AWS account '${self.account_id}', but this workspace is configured for '${var.aws_account_id}'."
-    }
+  source = "./modules/aws-preflight"
+  providers = {
+    aws = aws.preflight
   }
-}
 
-data "aws_region" "current" {
-  count = var.enable_aws_preflight ? 1 : 0
+  client_id      = var.client_id
+  environment    = var.environment
+  aws_region     = var.aws_region
+  aws_account_id = var.aws_account_id
 }

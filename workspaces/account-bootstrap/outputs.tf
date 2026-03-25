@@ -5,15 +5,15 @@ output "preflight_enabled" {
 
 output "account_id" {
   description = "AWS account ID confirmed by the bootstrap preflight."
-  value       = var.enable_aws_preflight ? data.aws_caller_identity.current[0].account_id : null
+  value       = var.enable_aws_preflight ? module.aws_preflight[0].account_id : null
 }
 
 output "caller_arn" {
   description = "ARN of the assumed role used by the bootstrap preflight."
-  value       = var.enable_aws_preflight ? data.aws_caller_identity.current[0].arn : null
+  value       = var.enable_aws_preflight ? module.aws_preflight[0].caller_arn : null
 }
 
 output "region" {
   description = "AWS region resolved during the bootstrap preflight."
-  value       = var.enable_aws_preflight ? data.aws_region.current[0].name : null
+  value       = var.enable_aws_preflight ? module.aws_preflight[0].region : null
 }
