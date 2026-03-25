@@ -42,10 +42,11 @@ locals {
       product_name                = try(account.product_name, "platform")
       region                      = try(account.region, "us-east-1")
       security_tier               = lower(try(account.security_tier, "standard"))
+      enable_aws_preflight        = try(account.enable_aws_preflight, false)
       services                    = try(tolist(account.services), [])
       service_family              = lower(try(account.service_family, "platform"))
       client_admin_team_name      = try(trimspace(account.client_admin_team_name), "")
-      description                 = try(account.description, "Terraform deployment for ${local._client_ids[k]} ${lower(try(account.env, "dev"))} (${account.account_id}).")
+      description                 = try(account.description, "Agency bootstrap and preflight workspace for ${local._client_ids[k]} ${lower(try(account.env, "dev"))} (${account.account_id}).")
       working_directory           = try(account.working_directory, "workspaces/account-bootstrap")
       portal_working_directory    = try(account.portal_working_directory, "workspaces/account-portal")
       vcs_repo_identifier         = try(account.vcs_repo_identifier, "bootstrap")
@@ -151,7 +152,7 @@ locals {
   }
 
   # Flattened map: "{workspace-prefix}-{service}" → { account, service }.
-  # Only agency-managed project workspaces are created directly here; client
+  # Only agency-managed deployer workspaces are created directly here; client
   # requestable blueprints are seeded into the account portal.
   service_accounts = {
     for pair in flatten([
@@ -409,8 +410,17 @@ locals {
     },
   )
 
+  bootstrap_control_variables = {
+    for k, account in local.normalized_accounts :
+    "bootstrap:${k}:enable_aws_preflight" => {
+      workspace_id = tfe_workspace.bootstrap_account[k].id
+      key          = "enable_aws_preflight"
+      value        = tostring(account.enable_aws_preflight)
+    }
+  }
+
   # OIDC dynamic credentials are required only for workspaces that run against
-  # AWS directly (bootstrap + agency-managed project workspaces).
+  # AWS directly (bootstrap + agency-managed deployer workspaces).
   all_oidc_env_variables = merge(
     {
       for k, account in local.normalized_accounts :
@@ -419,6 +429,7 @@ locals {
         key          = "TFC_AWS_PROVIDER_AUTH"
         value        = "true"
       }
+      if account.enable_aws_preflight
     },
     {
       for k, account in local.normalized_accounts :
@@ -427,6 +438,7 @@ locals {
         key          = "TFC_AWS_RUN_ROLE_ARN"
         value        = "arn:aws:iam::${account.account_id}:role/${local._oidc_role_name}"
       }
+      if account.enable_aws_preflight
     },
     {
       for k, pair in local.service_accounts :

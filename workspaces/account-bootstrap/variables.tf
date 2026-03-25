@@ -7,6 +7,12 @@ variable "aws_account_id" {
   type        = string
 }
 
+variable "enable_aws_preflight" {
+  description = "When true, verify HCP Terraform OIDC can assume the configured AWS run role. Leave false until the target account trust is ready."
+  type        = bool
+  default     = false
+}
+
 # Injected by control plane — informational only
 variable "aws_account_name" {
   type    = string

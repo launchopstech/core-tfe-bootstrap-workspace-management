@@ -1,5 +1,5 @@
 ################################################################################
-# Bootstrap workspaces (agency-internal, one per account entry)
+# Bootstrap workspaces (agency-internal preflight, one per account entry)
 ################################################################################
 
 resource "tfe_workspace" "bootstrap_account" {
@@ -75,7 +75,7 @@ resource "tfe_notification_configuration" "bootstrap_failure" {
 }
 
 ################################################################################
-# Account portal workspaces (client-facing, one per account entry)
+# Account portal workspaces (client-facing factory/controller, one per account entry)
 # Resource name remains "team" to avoid needless state-address churn.
 ################################################################################
 
@@ -83,7 +83,7 @@ resource "tfe_workspace" "team" {
   for_each = local.normalized_accounts
 
   name                          = each.value.workspace_prefix
-  description                   = "Account portal for ${each.value.client_id} ${each.value.env}. Client admins manage project requests here."
+  description                   = "Account portal and workspace factory for ${each.value.client_id} ${each.value.env}. Client admins manage project requests here."
   allow_destroy_plan            = false
   auto_apply                    = false
   speculative_enabled           = true
@@ -138,15 +138,15 @@ resource "tfe_notification_configuration" "team_failure" {
 }
 
 ################################################################################
-# Agency-managed project workspaces (secure-baseline in MVP).
-# Client-requestable blueprints are created by the account portal root.
+# Agency-managed deployer workspaces (secure-baseline in MVP).
+# Client-requestable deployer workspaces are created by the account portal root.
 ################################################################################
 
 resource "tfe_workspace" "service" {
   for_each = local.service_accounts
 
   name                          = each.key
-  description                   = "Agency-managed project workspace for ${each.value.account.client_id} ${each.value.account.env} — ${each.value.service}."
+  description                   = "Agency-managed deployer workspace for ${each.value.account.client_id} ${each.value.account.env} — ${each.value.service}."
   allow_destroy_plan            = false
   auto_apply                    = false
   speculative_enabled           = true

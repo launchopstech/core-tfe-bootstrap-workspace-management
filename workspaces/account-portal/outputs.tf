@@ -1,5 +1,5 @@
 output "project_workspaces" {
-  description = "Child project workspaces created by this account portal, keyed by blueprint."
+  description = "Child deployer workspaces created by this account portal, keyed by blueprint."
   value = {
     for project_key, workspace in tfe_workspace.project : project_key => {
       id                = workspace.id
@@ -12,6 +12,6 @@ output "project_workspaces" {
 }
 
 output "enabled_blueprints" {
-  description = "Sorted list of enabled project blueprints."
+  description = "Sorted list of blueprint deployers currently requested through the account portal."
   value       = sort(keys(local.enabled_projects))
 }

@@ -18,10 +18,18 @@ When you add a client account to this repo and apply, HCP Terraform automaticall
 - workspace metadata variables pre-populated (account ID, region, client ID, environment, security tier, selected services)
 - account-portal contract variables pre-populated (`project_requests_json`, project repo settings, variable-set IDs, run-role ARN)
 - failure notifications wired up
-- an agency-managed `secure-baseline` workspace named `<client>-<env>-secure-baseline` when the account opts into it
-- client-facing `vpc` and `rds` project workspaces created by the account portal from `project_requests_json`
+- an agency-managed `secure-baseline` deployer workspace named `<client>-<env>-secure-baseline` when the account opts into it
+- client-facing `vpc` and `rds` deployer workspaces created by the account portal from `project_requests_json`
 
 Every new account follows the same pattern with zero manual clicking in the HCP Terraform UI.
+
+In practice, the visible model is:
+
+- `bootstrap-<client>-<env>` = hidden agency bootstrap and AWS-access preflight
+- `<client>-<env>` = client-facing portal and workspace factory
+- `<client>-<env>-vpc` = real VPC deployer
+- `<client>-<env>-rds` = real RDS deployer
+- `<client>-<env>-secure-baseline` = hidden agency-managed baseline deployer
 
 ---
 
@@ -45,10 +53,11 @@ modules/                              # (Phase 5+) Reusable AWS service modules
     s3-secure/
     iam-access/
 workspaces/                           # (Phase 6+) Test per-service workspace roots
-  account-portal/
-  vpc/
-  rds/
-  secure-baseline/
+  account-portal/                     # portal/factory that creates child deployers
+  account-bootstrap/                  # agency bootstrap and OIDC preflight
+  vpc/                                # real VPC deployer
+  rds/                                # real RDS deployer
+  secure-baseline/                    # hidden agency baseline deployer
 catalog/                              # DEPRECATED — being removed after Phase 7 validation
 ```
 
@@ -87,13 +96,25 @@ catalog/                              # DEPRECATED — being removed after Phase
            │  bootstrap-accounts/         │
            │  Shared module               │
            │  For each account entry:       │
-           │  - bootstrap workspace         │
-           │  - account portal workspace    │
-           │  - agency-managed projects     │
+           │  - bootstrap preflight         │
+           │  - account portal / factory    │
+           │  - agency-managed deployers    │
            │  - variable sets + metadata    │
            │  - notifications + portal vars │
            └──────────────────────────────┘
 ```
+
+---
+
+## Workspace Roles
+
+| Workspace | Role |
+|---|---|
+| `bootstrap-<client>-<env>` | Hidden agency bootstrap and AWS-access preflight. Verifies HCP Terraform OIDC is targeting the expected AWS account before downstream deployers run. |
+| `<client>-<env>` | Client-facing account portal and workspace factory. Reads `project_requests_json`, validates requests, and creates child deployer workspaces. |
+| `<client>-<env>-secure-baseline` | Hidden agency-managed baseline deployer. |
+| `<client>-<env>-vpc` | Real VPC deployer workspace. |
+| `<client>-<env>-rds` | Real RDS deployer workspace. |
 
 ---
 
@@ -201,6 +222,7 @@ Edit `bootstrap-accounts-dev/accounts.tf.json`:
         "account_name": "acme.dev",
         "env": "dev",
         "region": "us-east-1",
+        "enable_aws_preflight": false,
         "security_tier": "standard",
         "services": ["account-bootstrap", "secure-baseline", "vpc", "rds"],
         "service_family": "platform",
@@ -214,7 +236,7 @@ Edit `bootstrap-accounts-dev/accounts.tf.json`:
 
 Commit and push to `main`. The HCP Terraform workspace picks up the change and creates the workspace automatically.
 
-If you want the account portal pre-seeded with `vpc` or `rds` requests, add the required `service_workspace_variables` for those services. `service_vcs_repo_identifier` is optional in MVP; if omitted, project workspaces default back to this repo’s `workspaces/<blueprint>/` roots.
+If you want the account portal pre-seeded with `vpc` or `rds` requests, add the required `service_workspace_variables` for those services. `service_vcs_repo_identifier` is optional in MVP; if omitted, child deployer workspaces default back to this repo’s `workspaces/<blueprint>/` roots.
 
 **`accounts.tf.json` schema:**
 
@@ -228,12 +250,13 @@ The key for each entry is any stable unique identifier for that account entry. T
 | `account_name` | no | default: account ID | Human-readable label for this account (e.g. `acme.dev`) |
 | `env` | yes | `dev`, `qa`, `prod`, `workbench`, `sbx` | Environment label — controls which variable set is attached and which HCP Terraform project the workspace lands in |
 | `region` | no | any AWS region, default: `us-east-1` | AWS region for this account |
+| `enable_aws_preflight` | no | default: `false` | When `true`, the hidden bootstrap workspace verifies HCP Terraform OIDC can assume `TerraformDeployRole` in the target AWS account. Leave `false` until AWS trust is ready. |
 | `security_tier` | yes | `standard`, `high` | Controls which security-tier variable set is attached |
 | `services` | no | default: `[]` | Desired services for this account. Used to seed agency-managed workspaces (`secure-baseline`) and initial account-portal `project_requests_json` entries for `vpc` and `rds` |
 | `service_family` | no | any string, default: `platform` | Logical service grouping — used as a workspace tag |
-| `client_admin_team_name` | no | HCP Terraform team name | If set, the named team gets write access to the account portal and any client-facing project workspaces it creates |
+| `client_admin_team_name` | no | HCP Terraform team name | If set, the named team gets write access to the account portal and any client-facing child deployer workspaces it creates |
 | `vcs_repo_identifier` | yes | `org/repo` format | GitHub repo the workspace VCS integration points at |
-| `service_vcs_repo_identifier` | no | `org/repo` format | Optional override repo for project workspaces. If omitted, the portal uses the same repo as `vcs_repo_identifier` |
+| `service_vcs_repo_identifier` | no | `org/repo` format | Optional override repo for child deployer workspaces. If omitted, the portal uses the same repo as `vcs_repo_identifier` |
 | `service_workspace_variables` | no | map keyed by service name | Terraform variables used to seed agency-managed workspaces and the initial portal request document, for example network CIDRs for `vpc` |
 | `working_directory` | no | default: `workspaces/account-bootstrap` | Working directory inside the VCS repo for the bootstrap workspace |
 | `workspace_tags` | no | list of strings, default: `[]` | Additional HCP Terraform tags to apply to the workspace |
@@ -245,6 +268,7 @@ The key for each entry is any stable unique identifier for that account entry. T
 - `client_id` or `product_name` must be non-empty
 - `vcs_repo_identifier` must be set to a real repo — cannot be the default placeholder
 - `service_vcs_repo_identifier` is optional; the portal defaults to `vcs_repo_identifier` when it is omitted
+- `enable_aws_preflight = true` requires the target AWS account to already trust HCP Terraform OIDC for `arn:aws:iam::<account_id>:role/TerraformDeployRole`
 - `vpc` requires `service_workspace_variables["vpc"].cidr_block`, `azs`, `private_subnets`, and `public_subnets`
 - `rds` requires both `secure-baseline` and `vpc` in `services`
 - if `rds` is enabled, `service_workspace_variables["vpc"].database_subnets` is also required so the VPC workspace can create a DB subnet group
@@ -272,17 +296,20 @@ Not a root — called by `bootstrap-accounts-dev` and `bootstrap-accounts-workbe
 **For each account entry it creates:**
 
 1. **`tfe_workspace`** — bootstrap workspace named `bootstrap-<client_id>-<env>`
+   - acts as the hidden agency bootstrap and AWS-access preflight workspace
+   - AWS preflight is controlled by `enable_aws_preflight` and defaults to off
    - tagged with `bootstrap`, `workspace-class-bootstrap-account`, `client-<id>`, `env-<env>`, `tier-<tier>`, `family-<family>`
    - linked to VCS repo, points to the account's working directory
    - `auto_apply = true`, `execution_mode = remote`
 
 2. **`tfe_workspace`** — account portal workspace named `<client_id>-<env>`
+   - acts as the client-facing portal and workspace factory
    - tagged with `workspace-class-account-portal`, `account-<account_id>`, `client-<id>`, `env-<env>`, `tier-<tier>`
    - linked to `workspaces/account-portal`
    - pre-seeded with `project_requests_json` and child-workspace settings
    - `auto_apply = false`, `execution_mode = remote`
 
-3. **`tfe_workspace_variable_set`** — attaches shared variable sets to bootstrap, account-portal, and agency-managed project workspaces:
+3. **`tfe_workspace_variable_set`** — attaches shared variable sets to bootstrap, account-portal, and agency-managed deployer workspaces:
    - global (all workspaces)
    - environment-specific (matches `env` field)
    - security-tier-specific (matches `security_tier` field)
@@ -291,7 +318,7 @@ Not a root — called by `bootstrap-accounts-dev` and `bootstrap-accounts-workbe
 4. **`tfe_variable`** — writes metadata directly into workspaces as Terraform variables:
    - `client_id`, `aws_account_id`, `aws_account_name`, `environment`, `aws_region`, `security_tier`, `service_family`, `selected_services`
 
-5. **Optional agency-managed `tfe_workspace` project workspaces** — currently `secure-baseline`
+5. **Optional agency-managed `tfe_workspace` deployer workspaces** — currently `secure-baseline`
    - named `<client_id>-<env>-secure-baseline`
    - run in the agency project, not the client-facing project
    - default to this repo unless `service_vcs_repo_identifier` overrides the project repo
@@ -352,7 +379,7 @@ Steps 2 and 3 are also triggered automatically by any push to `main` via VCS int
 2. Add the account entry using a stable unique key and set the real AWS `account_id` inside the object
 3. Set `client_id`, `env`, `region`, `security_tier`, `services`, `vcs_repo_identifier`
 4. If you want the account portal pre-seeded with client-facing `vpc` and `rds` requests, provide `service_workspace_variables` for those blueprints
-5. Optionally set `service_vcs_repo_identifier` if child project workspaces should point to a different repo than the control-plane repo
+5. Optionally set `service_vcs_repo_identifier` if child deployer workspaces should point to a different repo than the control-plane repo
 6. Commit and push to `main`
 7. HCP Terraform runs automatically and the workspace appears in the correct project
 
@@ -371,7 +398,7 @@ For local CLI runs against a non-default org, export `TF_CLOUD_ORGANIZATION=<you
 | Agency project | `<client_id>-<env>-secure-baseline` | No | `acme-dev-secure-baseline` |
 | Project (client self-service) | `<client_id>-<env>-<blueprint>` | Yes | `acme-dev-vpc` |
 
-The bootstrap layer is agency-internal. Clients log into HCP Terraform and see their environment workspace. From there they update `project_requests_json`, approve runs, and let the account portal create child project workspaces for their own stacks.
+The bootstrap layer is agency-internal. Clients log into HCP Terraform and see their environment workspace. That portal is a workspace factory: it reads `project_requests_json`, creates child deployers like `acme-dev-vpc` and `acme-dev-rds`, and injects the inherited metadata those deployers need to run.
 
 ---
 

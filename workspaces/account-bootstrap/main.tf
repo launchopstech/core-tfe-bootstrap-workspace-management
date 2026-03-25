@@ -8,6 +8,11 @@ terraform {
   }
 }
 
+# Agency bootstrap/preflight root. In MVP this workspace can verify that HCP
+# Terraform OIDC can reach the expected AWS account before downstream deployers
+# like secure-baseline, vpc, and rds run. The check is opt-in so portal setup
+# can proceed before AWS trust is ready.
+
 provider "aws" {
   region = var.aws_region
 
@@ -23,8 +28,11 @@ provider "aws" {
   }
 }
 
-# Verifies OIDC auth is working and the correct account is targeted.
+# Verifies OIDC auth is working and the correct account is targeted when the
+# preflight is enabled for this account entry.
 data "aws_caller_identity" "current" {
+  count = var.enable_aws_preflight ? 1 : 0
+
   lifecycle {
     postcondition {
       condition     = self.account_id == var.aws_account_id
@@ -32,4 +40,7 @@ data "aws_caller_identity" "current" {
     }
   }
 }
-data "aws_region" "current" {}
+
+data "aws_region" "current" {
+  count = var.enable_aws_preflight ? 1 : 0
+}
