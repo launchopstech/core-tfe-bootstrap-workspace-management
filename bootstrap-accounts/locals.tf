@@ -3,7 +3,7 @@
 locals {
   _client_ids = {
     for k, account in var.accounts :
-    k => lower(replace(replace(try(account.client_id, account.product_name), "_", "-"), " ", "-"))
+    k => lower(replace(replace(coalesce(account.client_id, account.product_name), "_", "-"), " ", "-"))
   }
 
   # Shared OIDC role name — change here to rename across all workspaces.
@@ -208,6 +208,58 @@ locals {
     },
   )
 
+  # ── Cross-service workspace name references ───────────────────────────────
+  # Injected so workspaces can read outputs from sibling service workspaces
+  # without manual HCP UI configuration.
+  service_link_variables = merge(
+    # secure_baseline_workspace_name — injected for vpc and rds
+    {
+      for k, pair in local.service_accounts :
+      "svc:${k}:secure_baseline_workspace_name" => {
+        workspace_id = tfe_workspace.service[k].id
+        key          = "secure_baseline_workspace_name"
+        value        = "${pair.account.client_id}-${pair.account.env}-secure-baseline"
+      }
+      if contains(["vpc", "rds"], pair.service)
+    },
+    # vpc_workspace_name — injected for rds
+    {
+      for k, pair in local.service_accounts :
+      "svc:${k}:vpc_workspace_name" => {
+        workspace_id = tfe_workspace.service[k].id
+        key          = "vpc_workspace_name"
+        value        = "${pair.account.client_id}-${pair.account.env}-vpc"
+      }
+      if pair.service == "rds"
+    },
+  )
+
+  # ── Per-service config variables — plain strings (hcl = false) ───────────
+  service_config_variables = merge([
+    for k, pair in local.service_accounts : {
+      for var_key, var_value in lookup(pair.account.services_config, pair.service, {}) :
+      "svc:${k}:${var_key}" => {
+        workspace_id = tfe_workspace.service[k].id
+        key          = var_key
+        value        = var_value
+      }
+    }
+  ]...)
+
+  # ── Per-service config variables — HCL expressions (hcl = true) ──────────
+  # Use for list(string) / map variables. Values must be valid HCL expressions,
+  # e.g. ["us-east-1a", "us-east-1b"] for a list.
+  service_config_hcl_variables = merge([
+    for k, pair in local.service_accounts : {
+      for var_key, var_value in lookup(pair.account.services_config_hcl, pair.service, {}) :
+      "svc:${k}:${var_key}" => {
+        workspace_id = tfe_workspace.service[k].id
+        key          = var_key
+        value        = var_value
+      }
+    }
+  ]...)
+
   # ── Unified metadata variables (bootstrap + team + service) ──────────────
   all_metadata_variables = merge(
     merge([
@@ -237,6 +289,8 @@ locals {
         }
       }
     ]...),
+    local.service_link_variables,
+    local.service_config_variables,
   )
 
   # ── Unified OIDC env variables (bootstrap + team + service) ──────────────

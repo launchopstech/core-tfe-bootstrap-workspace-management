@@ -39,6 +39,6 @@ module "vpc" {
   private_subnets  = var.private_subnets
   public_subnets   = var.public_subnets
   database_subnets = var.database_subnets
-  logs_bucket_arn  = nonsensitive(data.tfe_outputs.secure_baseline.values.logs_bucket_arn)
+  logs_bucket_arn  = try(nonsensitive(data.tfe_outputs.secure_baseline.values.logs_bucket_arn), null)
   tags             = var.tags
 }

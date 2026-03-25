@@ -29,8 +29,9 @@ module "vpc" {
   enable_dns_hostnames = true
   enable_dns_support   = true
 
-  # Flow logs — always on, written to S3
-  enable_flow_log                      = true
+  # Flow logs — enabled only after secure-baseline has been applied and
+  # its logs_bucket_arn output is available.
+  enable_flow_log                      = var.logs_bucket_arn != null
   flow_log_destination_type            = "s3"
   flow_log_destination_arn             = var.logs_bucket_arn
   flow_log_file_format                 = "parquet"
