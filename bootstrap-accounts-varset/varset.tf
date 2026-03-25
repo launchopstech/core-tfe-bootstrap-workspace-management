@@ -5,23 +5,7 @@
 resource "tfe_variable_set" "bootstrap_global" {
   name         = "bootstrap-accounts-global"
   description  = "WRITTEN BY AUTOMATION: Shared defaults used by all bootstrap-account workspaces."
-  organization = "core-aws"
-}
-
-resource "tfe_variable" "bootstrap_global_managed_by" {
-  key             = "managed_by"
-  value           = "terraform"
-  description     = "WRITTEN BY AUTOMATION: Declares the bootstrap control plane owner."
-  category        = "terraform"
-  variable_set_id = tfe_variable_set.bootstrap_global.id
-}
-
-resource "tfe_variable" "bootstrap_global_workspace_class" {
-  key             = "workspace_class"
-  value           = "bootstrap-account"
-  description     = "WRITTEN BY AUTOMATION: Shared workspace class for bootstrap-account workspaces."
-  category        = "terraform"
-  variable_set_id = tfe_variable_set.bootstrap_global.id
+  organization = var.organization
 }
 
 resource "tfe_variable_set" "bootstrap_environment" {
@@ -29,7 +13,7 @@ resource "tfe_variable_set" "bootstrap_environment" {
 
   name         = each.value.name
   description  = each.value.description
-  organization = "core-aws"
+  organization = var.organization
 }
 
 resource "tfe_variable" "bootstrap_environment_name" {
@@ -47,7 +31,7 @@ resource "tfe_variable_set" "bootstrap_security_tier" {
 
   name         = each.value.name
   description  = each.value.description
-  organization = "core-aws"
+  organization = var.organization
 }
 
 resource "tfe_variable" "bootstrap_security_tier_name" {
@@ -65,7 +49,7 @@ resource "tfe_variable_set" "control_plane_secrets" {
 
   name         = "bootstrap-accounts-control-plane-secrets"
   description  = "WRITTEN BY AUTOMATION: Shared sensitive values used by bootstrap-account workspaces."
-  organization = "core-aws"
+  organization = var.organization
 }
 
 resource "tfe_variable" "control_plane_secrets" {
