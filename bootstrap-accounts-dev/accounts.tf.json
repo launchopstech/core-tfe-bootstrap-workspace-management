@@ -25,7 +25,9 @@
             "public_subnets": ["10.0.101.0/24", "10.0.102.0/24"]
           },
           "secure-baseline": {
-            "enable_config": false
+            "enable_config":       false,
+            "enable_guardduty":    false,
+            "enable_security_hub": false
           }
         }
       }
