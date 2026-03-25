@@ -1,32 +1,32 @@
 variable "organization" {
-  description = "HCP Terraform organization that owns the account portal and child project workspaces."
+  description = "HCP Terraform organization that owns the account portal and its child deployer workspaces."
   type        = string
   default     = "core-aws"
 }
 
 variable "project_id" {
-  description = "Project ID where client-facing child project workspaces should be created."
+  description = "Project ID where client-facing child deployer workspaces should be created."
   type        = string
 }
 
 variable "project_vcs_repo_identifier" {
-  description = "VCS repo identifier used for child project workspaces. Defaults to the control-plane repo unless explicitly overridden."
+  description = "VCS repo identifier used for child deployer workspaces. Defaults to the control-plane repo unless explicitly overridden."
   type        = string
 }
 
 variable "project_vcs_oauth_token_id" {
-  description = "OAuth token ID used for child project workspace VCS integration."
+  description = "OAuth token ID used for child deployer workspace VCS integration."
   type        = string
 }
 
 variable "project_requests_json" {
-  description = "JSON document describing requested child project workspaces. Shape: {\"projects\": {\"vpc\": {\"enabled\": true, \"inputs\": {...}}, \"rds\": {\"enabled\": true, \"inputs\": {...}, \"depends_on\": [\"vpc\"]}}}."
+  description = "JSON document consumed by the portal factory to create requested child deployer workspaces. Shape: {\"projects\": {\"vpc\": {\"enabled\": true, \"inputs\": {...}}, \"rds\": {\"enabled\": true, \"inputs\": {...}, \"depends_on\": [\"vpc\"]}}}."
   type        = string
   default     = "{\"projects\":{}}"
 }
 
 variable "client_admin_team_name" {
-  description = "Optional HCP Terraform team name that should get write access to the client-facing project workspaces."
+  description = "Optional HCP Terraform team name that should get write access to the portal and any client-facing child deployer workspaces."
   type        = string
   default     = ""
 }
@@ -38,30 +38,30 @@ variable "notification_emails_json" {
 }
 
 variable "bootstrap_global_variable_set_id" {
-  description = "Optional global variable set ID to attach to child project workspaces."
+  description = "Optional global variable set ID to attach to child deployer workspaces."
   type        = string
   default     = null
 }
 
 variable "environment_variable_set_id" {
-  description = "Optional environment-scoped variable set ID to attach to child project workspaces."
+  description = "Optional environment-scoped variable set ID to attach to child deployer workspaces."
   type        = string
   default     = null
 }
 
 variable "security_tier_variable_set_id" {
-  description = "Optional security-tier variable set ID to attach to child project workspaces."
+  description = "Optional security-tier variable set ID to attach to child deployer workspaces."
   type        = string
   default     = null
 }
 
 variable "terraform_run_role_arn" {
-  description = "AWS role ARN used by child project workspaces through HCP Terraform dynamic credentials."
+  description = "AWS role ARN used by child deployer workspaces through HCP Terraform dynamic credentials."
   type        = string
 }
 
 variable "terraform_version" {
-  description = "Terraform version to pin on child project workspaces."
+  description = "Terraform version to pin on child deployer workspaces."
   type        = string
   default     = "~> 1.9.0"
 }
@@ -77,7 +77,7 @@ variable "environment" {
 }
 
 variable "aws_account_id" {
-  description = "AWS account ID backing this account portal."
+  description = "AWS account ID backing this portal and its child deployer workspaces."
   type        = string
 }
 

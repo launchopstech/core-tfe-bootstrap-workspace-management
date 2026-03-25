@@ -1,5 +1,5 @@
 output "bootstrap_account_workspaces" {
-  description = "Bootstrap workspaces keyed by the account entry key."
+  description = "Agency bootstrap and preflight workspaces keyed by the account entry key."
   value = {
     for k, workspace in tfe_workspace.bootstrap_account : k => {
       id                = workspace.id
@@ -14,7 +14,7 @@ output "bootstrap_account_workspaces" {
 }
 
 output "account_portal_workspaces" {
-  description = "Client-facing account portal workspaces keyed by the account entry key."
+  description = "Client-facing account portal and workspace-factory workspaces keyed by the account entry key."
   value = {
     for k, workspace in tfe_workspace.team : k => {
       id         = workspace.id
@@ -40,7 +40,7 @@ output "team_workspaces" {
 }
 
 output "agency_project_workspaces" {
-  description = "Agency-managed project workspaces keyed by {workspace_prefix}-{service}."
+  description = "Agency-managed deployer workspaces keyed by {workspace_prefix}-{service}."
   value = {
     for k, workspace in tfe_workspace.service : k => {
       id                = workspace.id

@@ -8,6 +8,10 @@ terraform {
   }
 }
 
+# Portal/factory root. This workspace reads project_requests_json and creates
+# child deployer workspaces such as <client>-<env>-vpc and <client>-<env>-rds.
+# It does not deploy those AWS resources itself.
+
 locals {
   client_admin_team_name = trimspace(var.client_admin_team_name)
   notification_emails    = try(tolist(jsondecode(var.notification_emails_json)), [])
@@ -258,7 +262,7 @@ resource "tfe_workspace" "project" {
   for_each = local.enabled_projects
 
   name                          = "${local.workspace_prefix}-${each.key}"
-  description                   = "Project workspace for ${var.client_id} ${var.environment} ${each.key}."
+  description                   = "Project deployer workspace for ${var.client_id} ${var.environment} ${each.key}."
   allow_destroy_plan            = false
   auto_apply                    = false
   speculative_enabled           = true

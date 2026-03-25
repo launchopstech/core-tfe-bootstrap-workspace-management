@@ -9,10 +9,10 @@ This repository is the **agency control plane**.
 It now owns:
 
 - metadata-driven account onboarding through `accounts.tf.json`
-- bootstrap workspaces for account bootstrap and agency-only operations
+- hidden bootstrap and preflight workspaces for agency-owned AWS access checks
 - account portal workspaces keyed by `client_id` + `env`
 - seeded project requests through `project_requests_json`
-- agency-managed baseline workspaces and client-facing project workspaces
+- agency-managed baseline deployers and client-facing child deployer workspaces
 - shared variable-set inheritance, metadata persistence, notifications, and HCP Terraform OIDC wiring
 
 The design direction is:
@@ -39,13 +39,13 @@ Already implemented in this repo:
 - [x] account portal root at `workspaces/account-portal`
 - [x] account portal naming keyed by `client_id` + `env`
 - [x] account-portal seeding through `project_requests_json`
-- [x] basic client-admin team access for the account portal and portal-created child workspaces
+- [x] basic client-admin team access for the account portal and portal-created child deployer workspaces
 
 Historical, no longer the active target:
 
 - the old `catalog/` YAML/render pipeline
 - a monolithic per-environment stack model
-- using the same visible AWS account portal for multiple environments
+- keying visible workspaces directly by AWS account ID
 
 ## Public Interfaces
 
@@ -67,14 +67,17 @@ Supported orchestration fields:
 - `service_workspace_variables`
 - `service_vcs_repo_identifier`
 - `client_admin_team_name`
+- `enable_aws_preflight`
 
 Behavior:
 
 - bootstrap workspace name: `bootstrap-<client_id>-<env>`
 - account portal workspace name: `<client_id>-<env>`
-- agency-managed project workspace name: `<client_id>-<env>-secure-baseline`
-- client-facing project workspace name: `<client_id>-<env>-<project_key>`
-- `service_vcs_repo_identifier` is optional in MVP; if omitted, child project workspaces default to this repo
+- agency-managed deployer workspace name: `<client_id>-<env>-secure-baseline`
+- client-facing child deployer workspace name: `<client_id>-<env>-<project_key>`
+- the account portal is a workspace factory/controller; child deployer workspaces are the actual deployers
+- `service_vcs_repo_identifier` is optional in MVP; if omitted, child deployer workspaces default to this repo
+- `enable_aws_preflight` defaults to `false` so portal rollout can proceed before AWS OIDC trust is ready
 - `services` plus `service_workspace_variables` are the initial seed only for client-facing blueprints
 
 ### `project_requests_json`
@@ -122,9 +125,9 @@ Agency-run only in MVP:
 
 The control plane lives in this repo and provisions:
 
-- bootstrap workspaces
+- bootstrap preflight workspaces
 - account portals
-- agency-managed project workspaces
+- agency-managed deployer workspaces
 - variable-set attachment
 - metadata variables
 - notification wiring
@@ -138,19 +141,20 @@ The portal:
 
 - reads `project_requests_json`
 - validates requested blueprints and dependency rules
-- creates child project workspaces in the client-facing project
+- creates child deployer workspaces in the client-facing project
 - attaches the right variable sets
 - injects inherited metadata and OIDC env vars
 - grants the configured client-admin team write access to child workspaces
+- does not deploy VPC or RDS resources itself
 
 ### Layer 3: Runtime Blueprints
 
 MVP roots:
 
-- [workspaces/account-bootstrap](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/account-bootstrap)
-- [workspaces/secure-baseline](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/secure-baseline)
-- [workspaces/vpc](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/vpc)
-- [workspaces/rds](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/rds)
+- [workspaces/account-bootstrap](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/account-bootstrap) — hidden agency bootstrap and AWS-access preflight
+- [workspaces/secure-baseline](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/secure-baseline) — hidden agency-managed baseline deployer
+- [workspaces/vpc](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/vpc) — real VPC deployer
+- [workspaces/rds](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/rds) — real RDS deployer
 
 ## Phase Plan
 
@@ -165,9 +169,10 @@ MVP roots:
 
 - [x] keep `accounts.tf.json` as the onboarding contract
 - [x] extend account metadata with `client_admin_team_name`
-- [x] make `service_vcs_repo_identifier` optional by defaulting project workspaces to the control-plane repo
+- [x] make `service_vcs_repo_identifier` optional by defaulting child deployer workspaces to the control-plane repo
 - [x] add `project_requests_json` as the account-portal contract
 - [x] create `workspaces/account-portal`
+- [x] add opt-in bootstrap AWS preflight so portal rollout is not blocked on target-account trust setup
 - [x] convert the client-facing placeholder workspace into a real account portal keyed by environment context
 - [x] fix visible naming and derived dependency workspace names to use the environment-based workspace prefix
 - [x] support account portal creation plus `vpc` and `rds` child-project creation
@@ -181,7 +186,7 @@ MVP roots:
 - [ ] tighten RBAC beyond basic `write` access
 - [ ] add explicit boundaries between agency-set and client-set variables
 - [ ] add policy hooks and approval policy integration points
-- [ ] add drift detection for client-facing project workspaces
+- [ ] add drift detection for client-facing child deployer workspaces
 - [ ] add stronger schema validation for `project_requests_json`
 
 ### Phase 3 — Orchestration
@@ -202,7 +207,7 @@ MVP roots:
 
 - [ ] one edit to `accounts.tf.json` creates a bootstrap workspace and account portal for a new client environment
 - [ ] a shared AWS account can appear in both `dev` and `workbench` without workspace-name collisions
-- [ ] a client admin updates `project_requests_json` to request `vpc`, and the portal creates `<client_id>-<env>-vpc` with inherited region, tier, IAM role, and metadata
+- [ ] a client admin updates `project_requests_json` to request `vpc`, and the portal creates the child deployer `<client_id>-<env>-vpc` with inherited region, tier, IAM role, and metadata
 - [ ] an `rds` request fails with a clear validation error unless `vpc` and required inputs already exist
 - [ ] bootstrap workspaces stay hidden from the client team while client-facing applies remain approval-gated
 - [ ] onboarding succeeds through `account-bootstrap`, `secure-baseline`, `vpc`, and `rds`

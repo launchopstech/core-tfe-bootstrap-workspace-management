@@ -8,6 +8,7 @@
         "env": "dev",
         "product_name": "platform",
         "region": "us-east-1",
+        "enable_aws_preflight": false,
         "security_tier": "high",
         "vcs_repo_identifier": "bomatronix/core-tfe-bootstrap-workspace-management",
         "service_vcs_repo_identifier": "bomatronix/core-tfe-bootstrap-workspace-management",
