@@ -52,8 +52,9 @@ variable "engine" {
   default = "postgres"
 }
 variable "engine_version" {
-  type    = string
-  default = "16.4"
+  description = "Database engine version. Defaults to the PostgreSQL 16 major version so AWS can choose a currently supported minor release."
+  type        = string
+  default     = "16"
 }
 variable "major_engine_version" {
   type    = string
