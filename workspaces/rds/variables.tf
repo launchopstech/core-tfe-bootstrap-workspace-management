@@ -1,10 +1,14 @@
-variable "secure_baseline_workspace_name" { type = string }
+# ── Infrastructure inputs ────────────────────────────────────────────────────
+variable "kms_key_arn" {
+  description = "ARN of the platform KMS key from secure-baseline. Injected by the control plane."
+  type        = string
+}
 variable "vpc_workspace_name" {
-  description = "Name of the VPC workspace for this account. RDS pulls subnet and CIDR outputs from here."
+  description = "Name of the VPC workspace in the same project. Used to read VPC outputs at runtime."
   type        = string
 }
 variable "hcp_terraform_organization" {
-  description = "HCP Terraform organization that owns sibling service workspaces."
+  description = "HCP Terraform organization."
   type        = string
   default     = "core-aws"
 }
