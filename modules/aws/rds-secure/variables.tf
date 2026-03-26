@@ -60,9 +60,27 @@ variable "multi_az" {
 }
 
 variable "backup_retention_days" {
-  description = "Days to retain automated backups. Enforced minimum is 14."
+  description = "Days to retain automated backups. Enforced minimum is 7."
   type        = number
   default     = 14
+}
+
+variable "deletion_protection" {
+  description = "Enable deletion protection. Disable for dev/test environments."
+  type        = bool
+  default     = true
+}
+
+variable "enable_performance_insights" {
+  description = "Enable Performance Insights. Disable to save cost in dev."
+  type        = bool
+  default     = true
+}
+
+variable "enable_enhanced_monitoring" {
+  description = "Enable Enhanced Monitoring (60s interval). Disable to save cost in dev."
+  type        = bool
+  default     = true
 }
 
 variable "kms_key_arn" {

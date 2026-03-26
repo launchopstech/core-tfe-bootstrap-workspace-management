@@ -27,10 +27,10 @@ module "db" {
   kms_key_id                          = var.kms_key_arn
   manage_master_user_password         = true
   iam_database_authentication_enabled = true
-  deletion_protection                 = true
+  deletion_protection                 = var.deletion_protection
   publicly_accessible                 = false
   copy_tags_to_snapshot               = true
-  backup_retention_period             = max(var.backup_retention_days, 14)
+  backup_retention_period             = max(var.backup_retention_days, 7)
   delete_automated_backups            = false
 
   multi_az = var.environment == "prod" ? true : var.multi_az
@@ -43,14 +43,14 @@ module "db" {
   vpc_security_group_ids = [aws_security_group.rds.id]
 
   # Enhanced monitoring
-  monitoring_interval    = 60
+  monitoring_interval    = var.enable_enhanced_monitoring ? 60 : 0
   monitoring_role_name   = "${var.client_id}-${var.environment}-rds-monitoring"
-  create_monitoring_role = true
+  create_monitoring_role = var.enable_enhanced_monitoring
 
   # Performance Insights
-  performance_insights_enabled          = true
-  performance_insights_retention_period = 7
-  performance_insights_kms_key_id       = var.kms_key_arn
+  performance_insights_enabled          = var.enable_performance_insights
+  performance_insights_retention_period = var.enable_performance_insights ? 7 : null
+  performance_insights_kms_key_id       = var.enable_performance_insights ? var.kms_key_arn : null
 
   tags = merge(var.tags, {
     ManagedBy   = "terraform"

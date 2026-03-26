@@ -38,6 +38,11 @@ variable "environment" { type = string }
 variable "aws_region" { type = string }
 
 # ── RDS config ────────────────────────────────────────────────────────────────
+variable "enable_cluster" {
+  description = "Deploy Aurora PostgreSQL cluster instead of a single RDS instance. Recommended for production."
+  type        = bool
+  default     = false
+}
 variable "engine" {
   type    = string
   default = "postgres"
@@ -85,6 +90,35 @@ variable "multi_az" {
 variable "backup_retention_days" {
   type    = number
   default = 14
+}
+variable "deletion_protection" {
+  type    = bool
+  default = true
+}
+variable "enable_performance_insights" {
+  type    = bool
+  default = true
+}
+variable "enable_enhanced_monitoring" {
+  type    = bool
+  default = true
+}
+
+# ── Aurora cluster config ────────────────────────────────────────────────────
+variable "cluster_instance_count" {
+  description = "Number of Aurora cluster instances (writer + readers)."
+  type        = number
+  default     = 2
+}
+variable "serverless_min_capacity" {
+  description = "Aurora Serverless v2 minimum ACU. Set to null for provisioned instances."
+  type        = number
+  default     = null
+}
+variable "serverless_max_capacity" {
+  description = "Aurora Serverless v2 maximum ACU. Set to null for provisioned instances."
+  type        = number
+  default     = null
 }
 
 variable "tags" {
