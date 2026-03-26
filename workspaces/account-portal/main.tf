@@ -23,7 +23,7 @@ locals {
   project_catalog = {
     vpc = {
       working_directory    = "workspaces/vpc"
-      default_dependencies = toset([])
+      default_dependencies = toset(["secure-baseline"])
       required_inputs      = toset(["cidr_block", "azs", "private_subnets", "public_subnets"])
     }
     rds = {
@@ -62,10 +62,12 @@ locals {
     if project.enabled && contains(keys(local.project_catalog), project_key)
   }
 
+  # Only check dependencies that are portal-managed (in project_catalog).
+  # External dependencies (e.g. secure-baseline) are agency-managed and assumed to exist.
   project_missing_dependencies = {
     for project_key, project in local.enabled_projects :
     project_key => setsubtract(
-      project.dependencies,
+      setintersection(project.dependencies, toset(keys(local.project_catalog))),
       toset(keys(local.enabled_projects)),
     )
   }
@@ -193,6 +195,7 @@ locals {
   workspace_inputs = {
     for item in flatten([
       for project_key, workspace in tfe_workspace.project : concat(
+        # Organization — all workspaces may need it for tfe_outputs reads
         [
           {
             map_key      = "${project_key}:hcp_terraform_organization"
@@ -200,19 +203,18 @@ locals {
             key          = "hcp_terraform_organization"
             value        = var.organization
           },
-          {
-            map_key      = "${project_key}:secure_baseline_workspace_name"
-            workspace_id = workspace.id
-            key          = "secure_baseline_workspace_name"
-            value        = "${local.workspace_prefix}-secure-baseline"
-          },
         ],
-        project_key == "rds" ? [{
-          map_key      = "${project_key}:vpc_workspace_name"
-          workspace_id = workspace.id
-          key          = "vpc_workspace_name"
-          value        = "${local.workspace_prefix}-vpc"
-        }] : [],
+        # Dependency workspace names — derived from the dependency graph
+        # Variable key uses underscores (e.g. secure-baseline → secure_baseline_workspace_name)
+        [
+          for dep in local.enabled_projects[project_key].dependencies : {
+            map_key      = "${project_key}:${replace(dep, "-", "_")}_workspace_name"
+            workspace_id = workspace.id
+            key          = "${replace(dep, "-", "_")}_workspace_name"
+            value        = "${local.workspace_prefix}-${dep}"
+          }
+        ],
+        # Service-specific inputs from project_requests_json
         [
           for input_key, input_value in local.enabled_projects[project_key].inputs : {
             map_key      = "${project_key}:${input_key}"
@@ -266,7 +268,7 @@ resource "tfe_workspace" "project" {
   allow_destroy_plan            = false
   auto_apply                    = false
   speculative_enabled           = true
-  global_remote_state           = false
+  global_remote_state           = length([for p, proj in local.enabled_projects : p if contains(proj.dependencies, each.key)]) > 0
   queue_all_runs                = false
   organization                  = var.organization
   project_id                    = var.project_id

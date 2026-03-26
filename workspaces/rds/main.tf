@@ -23,18 +23,13 @@ provider "aws" {
   }
 }
 
-data "tfe_outputs" "secure_baseline" {
-  organization = var.hcp_terraform_organization
-  workspace    = var.secure_baseline_workspace_name
-}
-
+# VPC outputs — read at runtime from the sibling VPC workspace in the same project.
 data "tfe_outputs" "vpc" {
   organization = var.hcp_terraform_organization
   workspace    = var.vpc_workspace_name
 }
 
 locals {
-  kms_key_arn                = nonsensitive(data.tfe_outputs.secure_baseline.values.kms_key_arn)
   vpc_id                     = nonsensitive(data.tfe_outputs.vpc.values.vpc_id)
   database_subnet_group_name = nonsensitive(data.tfe_outputs.vpc.values.database_subnet_group_name)
   private_subnet_cidrs       = nonsensitive(data.tfe_outputs.vpc.values.private_subnet_cidrs)
@@ -68,7 +63,7 @@ module "rds" {
   deletion_protection            = var.deletion_protection
   enable_performance_insights    = var.enable_performance_insights
   enable_enhanced_monitoring     = var.enable_enhanced_monitoring
-  kms_key_arn                    = local.kms_key_arn
+  kms_key_arn                    = var.kms_key_arn
   vpc_id                         = local.vpc_id
   database_subnet_group_name     = local.database_subnet_group_name
   private_subnet_cidrs           = local.private_subnet_cidrs
@@ -95,7 +90,7 @@ module "aurora" {
   deletion_protection            = var.deletion_protection
   enable_performance_insights    = var.enable_performance_insights
   enable_enhanced_monitoring     = var.enable_enhanced_monitoring
-  kms_key_arn                    = local.kms_key_arn
+  kms_key_arn                    = var.kms_key_arn
   vpc_id                         = local.vpc_id
   database_subnet_group_name     = local.database_subnet_group_name
   private_subnet_cidrs           = local.private_subnet_cidrs
