@@ -43,9 +43,9 @@ module "aurora" {
     }
   }
 
-  deletion_protection   = var.deletion_protection
-  publicly_accessible   = false
-  copy_tags_to_snapshot = true
+  deletion_protection     = var.deletion_protection
+  publicly_accessible     = false
+  copy_tags_to_snapshot   = true
   backup_retention_period = max(var.backup_retention_days, 7)
 
   # Monitoring

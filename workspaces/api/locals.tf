@@ -1,0 +1,82 @@
+# ── Decode configuration ────────────────────────────────────────────────────────
+locals {
+  config      = jsondecode(var.api_config_json)
+  name_prefix = "${var.client_id}-${var.environment}"
+
+  # Sub-configs — each section is optional; defaults disable the component
+  gw          = try(local.config.gateway, { enabled = false })
+  lambdas     = try(local.config.lambdas, {})
+  artifacts   = try(local.config.artifacts, { bucket = "", key_prefix = "", version = "" })
+  db_cfg      = try(local.config.database, { proxy_enabled = false })
+  uploads_cfg = try(local.config.uploads, { enabled = false })
+}
+
+# ── Component enable flags ──────────────────────────────────────────────────────
+locals {
+  gateway_enabled = try(local.config.gateway, null) != null && try(local.gw.enabled, true)
+  has_lambdas     = length(local.lambdas) > 0
+  proxy_enabled   = try(local.db_cfg.proxy_enabled, false)
+  uploads_enabled = try(local.uploads_cfg.enabled, false)
+
+  # needs_db implies VPC attachment — DB Lambdas always go through RDS Proxy in VPC
+  needs_vpc = local.has_lambdas && anytrue([for k, v in local.lambdas : try(v.needs_vpc, false) || try(v.needs_db, false)]) || local.proxy_enabled
+  needs_rds = local.has_lambdas && anytrue([for k, v in local.lambdas : try(v.needs_db, false)]) || local.proxy_enabled
+
+  # Authorizer lambda_key → authorizer config lookup
+  authorizer_lambda_keys = local.gateway_enabled ? {
+    for ak, av in try(local.gw.authorizers, {}) : av.lambda_key => av
+  } : {}
+
+  # IAM username for rds-db:connect — defaults to "app" (not the master user).
+  # Override via database.iam_username in api_config_json.
+  db_iam_username = try(local.db_cfg.iam_username, "app")
+}
+
+# ── Cross-workspace derived values (conditional) ────────────────────────────────
+locals {
+  kms_key_arn        = nonsensitive(data.tfe_outputs.secure_baseline.values.kms_key_arn)
+  vpc_id             = local.needs_vpc ? nonsensitive(data.tfe_outputs.vpc[0].values.vpc_id) : null
+  private_subnet_ids = local.needs_vpc ? nonsensitive(data.tfe_outputs.vpc[0].values.private_subnet_ids) : []
+  db_identifier      = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_identifier) : null
+  db_secret_arn      = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_secret_arn) : null
+  rds_sg_id          = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.security_group_id) : null
+  is_cluster         = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.enable_cluster) : false
+  db_resource_id     = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_resource_id) : null
+  db_username        = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_username) : null
+  db_name            = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_name) : null
+}
+
+# ── Per-Lambda environment variables ──────────────────────────────────────────
+locals {
+  lambda_env_vars = {
+    for k, v in local.lambdas : k => merge(
+      try(v.environment, {}),
+      # DB env vars — IAM auth, no secret exposure
+      try(v.needs_db, false) ? {
+        DB_PROXY_ENDPOINT = module.rds_proxy[0].proxy_endpoint
+        DB_NAME           = local.db_name
+        DB_USERNAME       = local.db_iam_username
+        DB_AUTH_MODE      = "iam"
+      } : {},
+      # Uploads env vars for lambdas that need S3 uploads access
+      try(v.needs_uploads, false) ? {
+        UPLOADS_BUCKET = module.uploads_bucket[0].bucket_id
+      } : {},
+      # Authorizer env vars for lambdas that serve as API Gateway authorizers
+      contains(keys(local.authorizer_lambda_keys), k) ? {
+        AUTH_PROVIDERS        = jsonencode(local.authorizer_lambda_keys[k].auth_providers)
+        DEFAULT_AUTH_PROVIDER = local.authorizer_lambda_keys[k].default_auth_provider
+      } : {},
+    )
+  }
+}
+
+# ── Per-Lambda IAM policy filter ──────────────────────────────────────────────
+locals {
+  lambdas_with_policies = {
+    for k, v in local.lambdas : k => v
+    if try(v.needs_db, false) || try(v.needs_uploads, false)
+  }
+
+  db_lambda_keys = [for k, v in local.lambdas : k if try(v.needs_db, false)]
+}

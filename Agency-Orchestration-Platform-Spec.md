@@ -65,6 +65,7 @@ Supported orchestration fields:
 
 - `services`
 - `service_workspace_variables`
+- `service_artifact_sources`
 - `service_vcs_repo_identifier`
 - `client_admin_team_name`
 - `enable_aws_preflight`
@@ -77,6 +78,7 @@ Behavior:
 - client-facing child deployer workspace name: `<client_id>-<env>-<project_key>`
 - the account portal is a workspace factory/controller; child deployer workspaces are the actual deployers
 - `service_vcs_repo_identifier` is optional in MVP; if omitted, child deployer workspaces default to this repo
+- `service_artifact_sources` is reserved for deployers whose application code is built outside this repo and delivered as versioned artifacts
 - `enable_aws_preflight` defaults to `false` so portal rollout can proceed before AWS OIDC trust is ready
 - `services` plus `service_workspace_variables` are the initial seed only for client-facing blueprints
 - `secure-baseline` requires `service_workspace_variables.secure-baseline.kms_key_arn`
@@ -114,6 +116,46 @@ MVP blueprint catalog:
 
 - `vpc`
 - `rds`
+
+Phase 2 blueprint additions:
+
+- `api`
+
+### `service_workspace_variables.api`
+
+Phase 2 introduces an `api` deployer contract under `service_workspace_variables.api`.
+
+Expected fields:
+
+- `artifact_version`
+- `cors_allowed_origins`
+- `auth_providers`
+- `default_auth_provider`
+- `lambda_memory_mb`
+- `lambda_timeout_seconds`
+- `uploads_bucket_enabled`
+
+`auth_providers` is a map keyed by provider name. Each value contains:
+
+- `issuer_url`
+- `audiences`
+
+### `service_artifact_sources`
+
+Phase 2 introduces `service_artifact_sources` for deployers whose application code is built in a separate repository.
+
+For `api`, the artifact source contract should provide:
+
+- `bucket`
+- `key_prefix`
+- `deployment_mode`
+
+Behavior:
+
+- Terraform for the API stack remains in this repo
+- API application code lives in a separate app repo
+- the app repo publishes versioned Lambda ZIP artifacts to S3
+- this repo deploys Lambda functions by artifact bucket, key, and object version
 
 Agency-run only in MVP:
 
@@ -157,6 +199,45 @@ MVP roots:
 - [workspaces/vpc](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/vpc) — real VPC deployer
 - [workspaces/rds](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/rds) — real RDS deployer
 
+Planned Phase 2 root:
+
+- `workspaces/api` — API Gateway, Lambda authorizer, Lambda handlers, S3 uploads, and RDS Proxy deployer
+
+## Future Multi-Cloud Naming Model
+
+Phase 1 remains AWS-first, but the naming model should evolve toward cloud-neutral client environments with provider-specific deployer identities.
+
+Future direction:
+
+- keep the account portal cloud-neutral: `<client_id>-<env>`
+- add provider plus target identity to bootstrap and deployer workspace names
+- prefer cloud-neutral blueprint names in the control plane
+- map those blueprints to provider-specific implementations underneath
+
+Target patterns:
+
+- account portal: `<client_id>-<env>`
+- bootstrap/preflight: `bootstrap-<client_id>-<env>-<provider>-<target_key>`
+- foundation deployer: `<client_id>-<env>-<provider>-foundation`
+- child deployer: `<client_id>-<env>-<provider>-<blueprint>`
+- regional child deployer when needed: `<client_id>-<env>-<provider>-<region_or_location>-<blueprint>`
+
+Example cloud-neutral blueprint aliases:
+
+- `foundation`
+- `network`
+- `postgres`
+- `kubernetes`
+- `object-storage`
+- `dns`
+- `observability`
+
+Example provider mappings:
+
+- `network` → AWS `vpc`, Azure `vnet`, GCP `vpc`
+- `postgres` → AWS `rds`, Azure `postgres-flex`, GCP `cloudsql`
+- `kubernetes` → AWS `eks`, Azure `aks`, GCP `gke`
+
 ## Phase Plan
 
 ### Phase 0 — Spec Consolidation
@@ -189,6 +270,24 @@ MVP roots:
 - [ ] add policy hooks and approval policy integration points
 - [ ] add drift detection for client-facing child deployer workspaces
 - [ ] add stronger schema validation for `project_requests_json`
+- [ ] add `api` to the portal blueprint catalog
+- [ ] add `api` dependency rules on `secure-baseline`, `vpc`, and `rds`
+- [ ] create `workspaces/api` in this repo
+- [ ] provision a public regional API Gateway REST API
+- [ ] provision one Lambda authorizer with pluggable external OIDC provider config
+- [ ] provision one main CRUD Lambda
+- [ ] provision one presign Lambda for upload and download URL issuance
+- [ ] provision one private uploads bucket with KMS encryption
+- [ ] provision RDS Proxy and target group for Lambda-to-Postgres connectivity
+- [ ] provision Lambda IAM roles, VPC networking, and security groups
+- [ ] provision CloudWatch log groups, API access logs, and basic alarms for 5XX and Lambda errors
+- [ ] extend `service_workspace_variables.api` with `artifact_version`, `cors_allowed_origins`, `auth_providers`, `default_auth_provider`, `lambda_memory_mb`, `lambda_timeout_seconds`, and `uploads_bucket_enabled`
+- [ ] define `auth_providers` as a map keyed by provider name with `issuer_url` and `audiences`
+- [ ] add `service_artifact_sources.api` for S3 artifact delivery from the separate app repo
+- [ ] keep API Terraform in this repo while the Node/TypeScript application code lives in a separate repo
+- [ ] document the app-repo release flow: build Lambda ZIPs, upload to a versioned S3 artifact bucket, deploy from bucket/key/object-version
+- [ ] validate API artifact and auth inputs at the control-plane and portal layers so bad config fails before deploy
+- [ ] document client-admin and operator workflow for bumping `artifact_version` and promoting API releases safely
 
 ### Phase 3 — Orchestration
 
@@ -203,6 +302,20 @@ MVP roots:
 - [ ] add `eks`
 - [ ] add observability and backup baselines
 - [ ] add cost controls, release/versioning flow, and operator runbooks
+
+### Phase 5 — Multi-Cloud Naming And Target Abstraction
+
+- [ ] keep the visible account portal name cloud-neutral as `<client_id>-<env>`
+- [ ] extend the onboarding contract from AWS-account-centric metadata to provider-neutral target metadata
+- [ ] add `provider` and `target_key` as first-class identity fields for deployer naming
+- [ ] support target-specific identifiers such as AWS `account_id`, Azure `subscription_id`, and GCP `project_id`
+- [ ] introduce cloud-neutral blueprint aliases in the control plane such as `foundation`, `network`, and `postgres`
+- [ ] map cloud-neutral blueprints to provider-specific implementations without changing the client-facing request model
+- [ ] move bootstrap/preflight naming to `bootstrap-<client_id>-<env>-<provider>-<target_key>`
+- [ ] move child deployer naming to `<client_id>-<env>-<provider>-<blueprint>` with optional regional suffixes where required
+- [ ] support multiple targets per client environment, for example `aws-primary`, `azure-primary`, and `gcp-analytics`
+- [ ] add a compatibility and migration plan for existing AWS workspace names and state addresses
+- [ ] document naming rules that forbid cloud-specific business names from becoming the primary control-plane identity
 
 ## MVP Acceptance Tests
 
@@ -219,6 +332,8 @@ Explicitly not release blockers for MVP:
 - policy packs
 - `s3-secure`
 - `eks`
+- multi-cloud naming and target abstraction
+- custom domain, WAF, async jobs, and background workers for the `api` blueprint
 
 ## Assumptions
 

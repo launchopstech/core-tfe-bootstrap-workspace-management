@@ -11,13 +11,17 @@ locals {
   # MVP portal support is intentionally narrow: clients can self-service only
   # these blueprints, while agency-managed workspaces stay under control-plane
   # ownership.
-  _client_requestable_services = toset(["vpc", "rds"])
+  _client_requestable_services = toset(["vpc", "rds", "lambda", "api"])
   _agency_managed_services     = toset(["secure-baseline"])
 
+  # Static dependency requirements. Lambda's VPC dependency is dynamic —
+  # inferred below from lambda_config_json when network.enabled = true.
   service_dependency_requirements = {
     "secure-baseline" = toset([])
     "vpc"             = toset(["secure-baseline"])
     "rds"             = toset(["secure-baseline", "vpc"])
+    "lambda"          = toset(["secure-baseline"])
+    "api"             = toset(["secure-baseline", "vpc", "rds"])
   }
 
   # Inputs that must be supplied manually when opting into managed service
@@ -26,7 +30,24 @@ locals {
     "secure-baseline" = toset(["kms_key_arn"])
     "vpc"             = toset(["cidr_block", "azs", "private_subnets", "public_subnets"])
     "rds"             = toset([])
+    "lambda"          = toset(["lambda_config_json"])
+    "api"             = toset(["api_config_json"])
   }
+
+  # Portal-managed dependency overrides for seeded_project_requests.
+  # Only includes client-requestable dependencies (not agency-managed ones
+  # like secure-baseline, which are assumed to exist outside the portal).
+  _client_requestable_dependency_overrides = {
+    "rds" = { depends_on = ["vpc"] }
+    "api" = { depends_on = ["vpc", "rds"] }
+  }
+
+  # Infer VPC dependency for lambda when lambda_config_json has network.enabled = true.
+  _lambda_needs_vpc = {
+    for k, account in var.accounts :
+    k => try(jsondecode(lookup(try(account.service_workspace_variables.lambda, {}), "lambda_config_json", "{}")).network.enabled, false)
+  }
+
 }
 
 # Stage 2: full account normalization and all derived maps.
@@ -74,7 +95,9 @@ locals {
                 }, {})
               }, {}), svc, {})
             },
-            svc == "rds" ? { depends_on = ["vpc"] } : {}
+            lookup(local._client_requestable_dependency_overrides, svc, {}),
+            # Infer vpc dependency for lambda when network.enabled = true
+            svc == "lambda" && local._lambda_needs_vpc[k] ? { depends_on = ["vpc"] } : {},
           )
           if contains(local._client_requestable_services, svc)
         }
@@ -131,7 +154,11 @@ locals {
     k => toset(flatten([
       for svc in local.account_seed_requested_services[k] :
       tolist(setsubtract(
-        lookup(local.service_dependency_requirements, svc, toset([])),
+        setunion(
+          lookup(local.service_dependency_requirements, svc, toset([])),
+          # Infer vpc dependency for lambda when network.enabled = true
+          svc == "lambda" && local._lambda_needs_vpc[k] ? toset(["vpc"]) : toset([]),
+        ),
         toset(account.services),
       ))
     ]))

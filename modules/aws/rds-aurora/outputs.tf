@@ -24,3 +24,18 @@ output "cluster_master_user_secret_arn" {
 output "security_group_id" {
   value = module.aurora.security_group_id
 }
+
+output "db_resource_id" {
+  description = "Cluster resource ID for IAM database authentication."
+  value       = module.aurora.cluster_resource_id
+}
+
+output "db_username" {
+  description = "Database master username."
+  value       = var.db_username
+}
+
+output "db_name" {
+  description = "Database name."
+  value       = var.db_name
+}

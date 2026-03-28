@@ -31,6 +31,16 @@ locals {
       default_dependencies = toset(["vpc"])
       required_inputs      = toset([])
     }
+    lambda = {
+      working_directory    = "workspaces/lambda"
+      default_dependencies = toset(["secure-baseline"])
+      required_inputs      = toset(["lambda_config_json"])
+    }
+    api = {
+      working_directory    = "workspaces/api"
+      default_dependencies = toset(["secure-baseline", "vpc", "rds"])
+      required_inputs      = toset(["api_config_json"])
+    }
   }
 
   project_requests_document = can(jsondecode(var.project_requests_json)) ? jsondecode(var.project_requests_json) : {}
@@ -52,11 +62,19 @@ locals {
     toset(keys(local.project_catalog)),
   )
 
+  # Infer vpc dependency for lambda when lambda_config_json has network.enabled = true
+  _lambda_needs_vpc = try(
+    jsondecode(lookup(try(local.requested_projects["lambda"].inputs, {}), "lambda_config_json", "{}")).network.enabled,
+    false,
+  )
+
   enabled_projects = {
     for project_key, project in local.requested_projects : project_key => merge(project, {
       dependencies = setunion(
         local.project_catalog[project_key].default_dependencies,
         project.requested_dependencies,
+        # Infer vpc dependency for lambda when network.enabled = true
+        project_key == "lambda" && local._lambda_needs_vpc ? toset(["vpc"]) : toset([]),
       )
     })
     if project.enabled && contains(keys(local.project_catalog), project_key)
@@ -302,6 +320,16 @@ resource "tfe_workspace" "project" {
     precondition {
       condition     = length(local.project_missing_required_inputs[each.key]) == 0
       error_message = "Project '${each.key}' is missing required inputs: ${join(", ", sort(tolist(local.project_missing_required_inputs[each.key])))}."
+    }
+
+    precondition {
+      condition     = each.key != "lambda" || !contains(keys(local.enabled_projects[each.key].inputs), "lambda_config_json") || can(jsondecode(local.enabled_projects[each.key].inputs["lambda_config_json"]))
+      error_message = "Project 'lambda' input 'lambda_config_json' is not valid JSON."
+    }
+
+    precondition {
+      condition     = each.key != "api" || !contains(keys(local.enabled_projects[each.key].inputs), "api_config_json") || can(jsondecode(local.enabled_projects[each.key].inputs["api_config_json"]))
+      error_message = "Project 'api' input 'api_config_json' is not valid JSON."
     }
   }
 

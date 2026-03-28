@@ -28,7 +28,7 @@ In practice, the visible model is:
 - `bootstrap-<client>-<env>` = hidden agency bootstrap and AWS-access preflight
 - `<client>-<env>` = client-facing portal and workspace factory
 - `<client>-<env>-vpc` = real VPC deployer
-- `<client>-<env>-rds` = real RDS deployer
+- `<client>-<env>-rds` = real RDS deployer (single instance or Aurora cluster via `enable_cluster`)
 - `<client>-<env>-secure-baseline` = hidden agency-managed baseline deployer
 
 ---
@@ -43,22 +43,26 @@ bootstrap-accounts-dev/               # Step 3a — runs in HCP Terraform (dev a
 bootstrap-accounts-workbench/         # Step 3b — runs in HCP Terraform (workbench accounts)
   accounts.tf.json                    # ← same for workbench accounts
 bootstrap-accounts/                   # Shared module — called by dev and workbench roots
-modules/                              # (Phase 5+) Reusable AWS service modules
+modules/                              # Reusable AWS service modules
   aws/
     account-bootstrap/
     secure-baseline/
     vpc/
-    rds-secure/
+    rds-secure/                       # Single RDS instance (PostgreSQL)
+    rds-aurora/                       # Aurora PostgreSQL cluster
     eks/
     s3-secure/
     iam-access/
-workspaces/                           # (Phase 6+) Test per-service workspace roots
+workspaces/                           # Per-service workspace roots (run in HCP Terraform)
   account-portal/                     # portal/factory that creates child deployers
   account-bootstrap/                  # agency bootstrap and OIDC preflight
   vpc/                                # real VPC deployer
-  rds/                                # real RDS deployer
+  rds/                                # real RDS deployer (single instance or Aurora cluster)
   secure-baseline/                    # hidden agency baseline deployer
-catalog/                              # DEPRECATED — being removed after Phase 7 validation
+scripts/
+  local-backend-setup.sh              # Generate override files for local CLI plan/apply
+docs/
+  token-strategy.md                   # HCP Terraform token types and placement
 ```
 
 **`accounts.tf.json` is the only file you edit to onboard a client.** No Python scripts, no YAML pipeline, no generated files.
@@ -114,7 +118,33 @@ catalog/                              # DEPRECATED — being removed after Phase
 | `<client>-<env>` | Client-facing account portal and workspace factory. Reads `project_requests_json`, validates requests, and creates child deployer workspaces. |
 | `<client>-<env>-secure-baseline` | Hidden agency-managed baseline deployer. |
 | `<client>-<env>-vpc` | Real VPC deployer workspace. |
-| `<client>-<env>-rds` | Real RDS deployer workspace. |
+| `<client>-<env>-rds` | Real RDS deployer workspace. Deploys single PostgreSQL instance by default; set `enable_cluster = true` for Aurora PostgreSQL. |
+
+---
+
+## Cross-Workspace Data Flow
+
+Deployer workspaces need outputs from upstream workspaces (e.g., RDS needs the KMS key from secure-baseline and subnet IDs from VPC). Data flows in two ways:
+
+**Variable injection (cross-project values):** Values known at bootstrap time (e.g., `kms_key_arn` from the CFN stack) are placed in `accounts.tf.json` under `service_workspace_variables`. The control plane seeds them into `project_requests_json`, the portal injects them as workspace variables on child deployers. No cross-workspace state access needed.
+
+**`tfe_outputs` (same-project runtime values):** Values only known after a workspace applies (e.g., `vpc_id`, `database_subnet_group_name`) are read at runtime via `data.tfe_outputs`. This requires the source workspace to have `global_remote_state = true`, which is set automatically when other services in the account depend on it.
+
+```
+accounts.tf.json
+  kms_key_arn ──────→ project_requests_json ──→ portal injects on RDS workspace
+                                                  └─ var.kms_key_arn (direct)
+
+secure-baseline (global_remote_state = true)
+  logs_bucket_arn ──→ VPC reads via tfe_outputs at runtime
+
+VPC (global_remote_state = true)
+  vpc_id ───────────→ RDS reads via tfe_outputs at runtime
+  database_subnet_group_name
+  private_subnet_cidrs
+```
+
+Dependency workspace names (e.g., `vpc_workspace_name`, `secure_baseline_workspace_name`) are auto-injected by the portal based on the dependency graph in `project_catalog`.
 
 ---
 
@@ -257,7 +287,7 @@ The key for each entry is any stable unique identifier for that account entry. T
 | `client_admin_team_name` | no | HCP Terraform team name | If set, the named team gets write access to the account portal and any client-facing child deployer workspaces it creates |
 | `vcs_repo_identifier` | yes | `org/repo` format | GitHub repo the workspace VCS integration points at |
 | `service_vcs_repo_identifier` | no | `org/repo` format | Optional override repo for child deployer workspaces. If omitted, the portal uses the same repo as `vcs_repo_identifier` |
-| `service_workspace_variables` | no | map keyed by service name | Terraform variables used to seed agency-managed workspaces and the initial portal request document, for example `kms_key_arn` for `secure-baseline` and network CIDRs for `vpc` |
+| `service_workspace_variables` | no | map keyed by service name | Terraform variables used to seed agency-managed workspaces and the initial portal request document, for example `kms_key_arn` for `secure-baseline`, network CIDRs for `vpc`, and `kms_key_arn` + instance config for `rds` |
 | `working_directory` | no | default: `workspaces/account-bootstrap` | Working directory inside the VCS repo for the bootstrap workspace |
 | `workspace_tags` | no | list of strings, default: `[]` | Additional HCP Terraform tags to apply to the workspace |
 
@@ -272,6 +302,7 @@ The key for each entry is any stable unique identifier for that account entry. T
 - `secure-baseline` requires `service_workspace_variables["secure-baseline"].kms_key_arn`
 - `vpc` requires `service_workspace_variables["vpc"].cidr_block`, `azs`, `private_subnets`, and `public_subnets`
 - `rds` requires both `secure-baseline` and `vpc` in `services`
+- `rds` requires `service_workspace_variables["rds"].kms_key_arn` (the platform KMS key ARN from the CFN bootstrap)
 - if `rds` is enabled, `service_workspace_variables["vpc"].database_subnets` is also required so the VPC workspace can create a DB subnet group
 
 ---
@@ -427,6 +458,60 @@ More specific sets override less specific ones where keys collide.
 
 ---
 
+## Local CLI Plan & Apply
+
+You can run `terraform plan` and `terraform apply` from your local machine against any HCP Terraform workspace. Runs execute **remotely** in HCP Terraform (OIDC credentials, variable sets, and all workspace config apply as normal) — your terminal streams the output.
+
+### One-time setup
+
+```bash
+# 1. Authenticate to HCP Terraform
+terraform login
+
+# 2. Generate backend_override.tf files for all workspace roots
+./scripts/local-backend-setup.sh            # defaults to org "core-aws"
+./scripts/local-backend-setup.sh my-org     # or specify your org
+```
+
+This creates a `backend_override.tf` in each workspace root. These files are gitignored (`*_override.tf`) and do not affect VCS-triggered runs.
+
+### Running plan and apply
+
+Use `TF_WORKSPACE` to target a specific workspace:
+
+```bash
+# Init (only needed once per workspace)
+TF_WORKSPACE=test-client-dev-rds terraform -chdir=workspaces/rds init
+
+# Plan
+TF_WORKSPACE=test-client-dev-rds terraform -chdir=workspaces/rds plan
+
+# Apply (HCP Terraform prompts for confirmation in your terminal)
+TF_WORKSPACE=test-client-dev-rds terraform -chdir=workspaces/rds apply
+```
+
+### Workspace name reference
+
+| Root | Example workspace name |
+|---|---|
+| `workspaces/rds/` | `test-client-dev-rds` |
+| `workspaces/vpc/` | `test-client-dev-vpc` |
+| `workspaces/secure-baseline/` | `test-client-dev-secure-baseline` |
+| `workspaces/account-portal/` | `test-client-dev` |
+| `workspaces/account-bootstrap/` | `bootstrap-test-client-dev` |
+| `bootstrap-accounts-dev/` | `bootstrap-account-workspace-management-dev` |
+| `bootstrap-accounts-varset/` | `00-bootstrap-account-workspace-management` |
+
+### Notes
+
+- `backend_override.tf` files are gitignored — they never get committed or affect VCS runs
+- Plans and applies run remotely in HCP Terraform with full OIDC credentials
+- No local AWS keys needed
+- The workspace must already exist in HCP Terraform (created by the control plane or portal)
+- To validate syntax without a backend: `terraform -chdir=workspaces/rds validate` (requires `terraform init -backend=false` first)
+
+---
+
 ## Related Documents
 
 - [Agency-Orchestration-Platform-Spec.md](./Agency-Orchestration-Platform-Spec.md) — canonical architecture, phased roadmap, and completion status
@@ -434,3 +519,4 @@ More specific sets override less specific ones where keys collide.
 - [Agency-AWS-Terraform-Implementation-TODO.md](./Agency-AWS-Terraform-Implementation-TODO.md) — phase-by-phase build plan
 - [Open-Source-Framework-Research.md](./Open-Source-Framework-Research.md) — open-source references for Phases 3-8
 - [Terraform-Quick-Start.md](./Terraform-Quick-Start.md) — HCP Terraform workflow cheatsheet
+- [docs/token-strategy.md](./docs/token-strategy.md) — HCP Terraform token types, placement, and team setup
