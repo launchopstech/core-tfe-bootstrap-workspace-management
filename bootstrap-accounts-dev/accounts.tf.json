@@ -49,8 +49,9 @@
             "lambda_config_json": {
               "function_name_suffix": "test-worker",
               "package": {
-                "bucket": "test-client-dev-artifacts",
-                "key": "lambda/test-worker-v0.1.0.zip"
+                "bucket": "test-client-dev-lambda-code",
+                "key": "lambda/test-worker-v0.1.0.zip",
+                "create_bucket": true
               },
               "runtime": {
                 "handler": "bootstrap",
@@ -138,7 +139,8 @@
                 }
               },
               "artifacts": {
-                "bucket": "test-client-dev-artifacts",
+                "bucket": "test-client-dev-api-code",
+                "create_bucket": true,
                 "key_prefix": "api",
                 "version": "v0.1.0"
               },

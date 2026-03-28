@@ -9,6 +9,18 @@ locals {
   artifacts   = try(local.config.artifacts, { bucket = "", key_prefix = "", version = "" })
   db_cfg      = try(local.config.database, { proxy_enabled = false })
   uploads_cfg = try(local.config.uploads, { enabled = false })
+
+  configured_artifacts_bucket     = trimspace(try(local.artifacts.bucket, ""))
+  configured_artifacts_key_prefix = trimspace(try(local.artifacts.key_prefix, ""))
+  configured_artifacts_version    = trimspace(try(local.artifacts.version, ""))
+  create_artifacts_bucket         = try(local.artifacts.create_bucket, false)
+
+  default_artifacts_bucket_name = local.configured_artifacts_bucket != "" ? local.configured_artifacts_bucket : (
+    var.aws_account_id != null && trimspace(var.aws_account_id) != "" ? "${local.name_prefix}-${var.aws_account_id}-api-code" : "${local.name_prefix}-api-code"
+  )
+  resolved_artifacts_bucket     = local.create_artifacts_bucket ? local.default_artifacts_bucket_name : local.configured_artifacts_bucket
+  resolved_artifacts_key_prefix = local.configured_artifacts_key_prefix != "" ? local.configured_artifacts_key_prefix : "api"
+  resolved_artifacts_version    = local.configured_artifacts_version
 }
 
 # ── Component enable flags ──────────────────────────────────────────────────────

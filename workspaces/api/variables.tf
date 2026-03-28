@@ -100,10 +100,14 @@ variable "api_config_json" {
         "presign":    { "function_name_suffix": "api-presign",    "memory_mb": 128, "timeout_seconds": 10, "needs_vpc": false, "needs_db": false, "needs_uploads": true  },
         "authorizer": { "function_name_suffix": "api-authorizer", "memory_mb": 128, "timeout_seconds": 10, "needs_vpc": false, "needs_db": false, "needs_uploads": false }
       },
-      "artifacts": { "bucket": "my-artifacts", "key_prefix": "api", "version": "v1.2.3" },
+      "artifacts": { "bucket": "my-api-code", "key_prefix": "api", "version": "v1.2.3", "create_bucket": false },
       "database":  { "proxy_enabled": true, "iam_username": "app" },
       "uploads":   { "enabled": true }
     }
+
+    When artifacts.create_bucket = true, this workspace creates the configured
+    S3 code bucket so an external build/deploy pipeline can upload Lambda ZIP
+    artifacts there. This workspace does not generate demo code or upload ZIPs.
   EOT
   type        = any
 

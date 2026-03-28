@@ -3,6 +3,11 @@ resource "terraform_data" "api_config_validation" {
   input = local.config
 
   lifecycle {
+    precondition {
+      condition     = !local.has_lambdas || (local.resolved_artifacts_bucket != "" && local.configured_artifacts_key_prefix != "" && local.configured_artifacts_version != "")
+      error_message = "API lambdas require artifacts.bucket, artifacts.key_prefix, and artifacts.version."
+    }
+
     # DB Lambdas require the proxy to be enabled
     precondition {
       condition = alltrue([
