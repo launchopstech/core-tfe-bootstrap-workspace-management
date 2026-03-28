@@ -54,5 +54,7 @@ variable "service_working_dirs" {
     "secure-baseline" = "workspaces/secure-baseline"
     "vpc"             = "workspaces/vpc"
     "rds"             = "workspaces/rds"
+    "lambda"          = "workspaces/lambda"
+    "api"             = "workspaces/api"
   }
 }

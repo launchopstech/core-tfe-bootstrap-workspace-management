@@ -17,7 +17,9 @@
           "account-bootstrap",
           "secure-baseline",
           "vpc",
-          "rds"
+          "rds",
+          "lambda",
+          "api"
         ],
         "service_workspace_variables": {
           "vpc": {
@@ -42,6 +44,112 @@
             "deletion_protection": false,
             "enable_performance_insights": false,
             "enable_enhanced_monitoring": false
+          },
+          "lambda": {
+            "lambda_config_json": {
+              "function_name_suffix": "test-worker",
+              "package": {
+                "bucket": "test-client-dev-artifacts",
+                "key": "lambda/test-worker-v0.1.0.zip"
+              },
+              "runtime": {
+                "handler": "bootstrap",
+                "runtime": "provided.al2023"
+              },
+              "performance": {
+                "memory_mb": 256,
+                "timeout_seconds": 30
+              },
+              "environment": {
+                "LOG_LEVEL": "debug"
+              },
+              "network": {
+                "enabled": true
+              },
+              "logging": {
+                "retention_days": 30
+              },
+              "iam": {
+                "additional_policy_json": ""
+              }
+            }
+          },
+          "api": {
+            "api_config_json": {
+              "gateway": {
+                "enabled": true,
+                "cors": {
+                  "allowed_origins": ["*"]
+                },
+                "stage": {
+                  "name": "v1"
+                },
+                "authorizers": {
+                  "token": {
+                    "lambda_key": "authorizer",
+                    "auth_providers": {
+                      "okta": {
+                        "issuer_url": "https://dev-test.okta.com",
+                        "audiences": ["api://default"]
+                      }
+                    },
+                    "default_auth_provider": "okta"
+                  }
+                },
+                "routes": {
+                  "proxy": {
+                    "path_part": "{proxy+}",
+                    "methods": ["ANY"],
+                    "integration_key": "crud",
+                    "authorizer_key": "token"
+                  },
+                  "presign": {
+                    "path_part": "presign",
+                    "methods": ["ANY"],
+                    "integration_key": "presign",
+                    "authorizer_key": "token"
+                  }
+                }
+              },
+              "lambdas": {
+                "crud": {
+                  "function_name_suffix": "api-crud",
+                  "memory_mb": 256,
+                  "timeout_seconds": 30,
+                  "needs_vpc": true,
+                  "needs_db": true,
+                  "needs_uploads": false
+                },
+                "presign": {
+                  "function_name_suffix": "api-presign",
+                  "memory_mb": 128,
+                  "timeout_seconds": 10,
+                  "needs_vpc": false,
+                  "needs_db": false,
+                  "needs_uploads": true
+                },
+                "authorizer": {
+                  "function_name_suffix": "api-authorizer",
+                  "memory_mb": 128,
+                  "timeout_seconds": 10,
+                  "needs_vpc": false,
+                  "needs_db": false,
+                  "needs_uploads": false
+                }
+              },
+              "artifacts": {
+                "bucket": "test-client-dev-artifacts",
+                "key_prefix": "api",
+                "version": "v0.1.0"
+              },
+              "database": {
+                "proxy_enabled": true,
+                "iam_username": "app"
+              },
+              "uploads": {
+                "enabled": true
+              }
+            }
           }
         }
       }

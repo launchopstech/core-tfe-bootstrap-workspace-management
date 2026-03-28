@@ -18,6 +18,33 @@ output "security_group_id" {
   value = var.enable_cluster ? module.aurora[0].security_group_id : module.rds[0].security_group_id
 }
 
+# ── Identifier outputs (consumed by RDS Proxy in the api workspace) ────────
+output "db_identifier" {
+  description = "Database instance identifier (single) or cluster identifier (Aurora)."
+  value       = var.enable_cluster ? module.aurora[0].cluster_id : module.rds[0].db_instance_id
+}
+
+output "enable_cluster" {
+  description = "Whether this RDS workspace deployed an Aurora cluster."
+  value       = var.enable_cluster
+}
+
+# ── IAM auth outputs (consumed by api workspace for rds-db:connect) ─────────
+output "db_resource_id" {
+  description = "DBI resource ID (single) or cluster resource ID (Aurora) for IAM auth."
+  value       = var.enable_cluster ? module.aurora[0].db_resource_id : module.rds[0].db_resource_id
+}
+
+output "db_username" {
+  description = "Database master username."
+  value       = var.db_username
+}
+
+output "db_name" {
+  description = "Database name."
+  value       = var.db_name
+}
+
 # ── Aurora-only outputs ─────────────────────────────────────────────────────
 output "db_reader_endpoint" {
   description = "Read-only endpoint (Aurora only, null for single instance)."
