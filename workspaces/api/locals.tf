@@ -1,6 +1,6 @@
 # ── Decode configuration ────────────────────────────────────────────────────────
 locals {
-  config      = jsondecode(var.api_config_json)
+  config      = var.api_config_json
   name_prefix = "${var.client_id}-${var.environment}"
 
   # Sub-configs — each section is optional; defaults disable the component
@@ -27,9 +27,10 @@ locals {
     for ak, av in try(local.gw.authorizers, {}) : av.lambda_key => av
   } : {}
 
-  # IAM username for rds-db:connect — defaults to "app" (not the master user).
-  # Override via database.iam_username in api_config_json.
-  db_iam_username = try(local.db_cfg.iam_username, "app")
+  # IAM username for rds-db:connect. This must be an existing database role
+  # that is allowed to authenticate through RDS IAM; we validate it when any
+  # Lambda declares needs_db = true.
+  db_iam_username = trimspace(try(local.db_cfg.iam_username, ""))
 }
 
 # ── Cross-workspace derived values (conditional) ────────────────────────────────

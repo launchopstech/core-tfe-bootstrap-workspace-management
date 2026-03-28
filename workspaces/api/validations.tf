@@ -11,6 +11,13 @@ resource "terraform_data" "api_config_validation" {
       error_message = "Lambda with needs_db = true requires database.proxy_enabled = true in api_config_json."
     }
 
+    precondition {
+      condition = alltrue([
+        for k, v in local.lambdas : !try(v.needs_db, false) || local.db_iam_username != ""
+      ])
+      error_message = "Lambda with needs_db = true requires database.iam_username in api_config_json. Set it to an existing IAM-authenticated database role."
+    }
+
     # VPC workspace name must be provided when VPC-attached resources exist
     precondition {
       condition     = !local.needs_vpc || var.vpc_workspace_name != null

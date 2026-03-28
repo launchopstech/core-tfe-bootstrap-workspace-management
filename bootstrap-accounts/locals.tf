@@ -15,7 +15,7 @@ locals {
   _agency_managed_services     = toset(["secure-baseline"])
 
   # Static dependency requirements. Lambda's VPC dependency is dynamic —
-  # inferred below from lambda_config_json when network.enabled = true.
+  # inferred below from lambda_config_json.network.enabled when true.
   service_dependency_requirements = {
     "secure-baseline" = toset([])
     "vpc"             = toset(["secure-baseline"])
@@ -42,10 +42,10 @@ locals {
     "api" = { depends_on = ["vpc", "rds"] }
   }
 
-  # Infer VPC dependency for lambda when lambda_config_json has network.enabled = true.
+  # Infer VPC dependency for lambda when lambda_config_json.network.enabled = true.
   _lambda_needs_vpc = {
     for k, account in var.accounts :
-    k => try(jsondecode(lookup(try(account.service_workspace_variables.lambda, {}), "lambda_config_json", "{}")).network.enabled, false)
+    k => try(account.service_workspace_variables.lambda.lambda_config_json.network.enabled, false)
   }
 
 }

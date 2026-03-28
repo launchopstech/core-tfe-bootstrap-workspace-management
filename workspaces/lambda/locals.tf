@@ -1,6 +1,6 @@
 # ── Decode configuration ────────────────────────────────────────────────────────
 locals {
-  config = jsondecode(var.lambda_config_json)
+  config = var.lambda_config_json
 
   function_name_suffix = local.config.function_name_suffix
   function_name        = "${var.client_id}-${var.environment}-${local.function_name_suffix}"

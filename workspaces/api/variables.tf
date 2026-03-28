@@ -70,10 +70,11 @@ variable "rds_workspace_name" {
   default     = null
 }
 
-# ── API configuration (JSON blob) ─────────────────────────────────────────────
+# ── API configuration (object) ────────────────────────────────────────────────
 variable "api_config_json" {
   description = <<-EOT
-    JSON-encoded API configuration. All top-level sections are optional —
+    API configuration object. In .tf.json files, provide this as a nested JSON
+    object, not a quoted JSON string. All top-level sections are optional —
     omit a section to disable that component entirely.
 
     Expected shape:
@@ -104,7 +105,12 @@ variable "api_config_json" {
       "uploads":   { "enabled": true }
     }
   EOT
-  type        = string
+  type        = any
+
+  validation {
+    condition     = can(keys(var.api_config_json))
+    error_message = "api_config_json must be a JSON object, not a quoted JSON string."
+  }
 }
 
 variable "tags" {

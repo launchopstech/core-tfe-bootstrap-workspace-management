@@ -62,11 +62,8 @@ locals {
     toset(keys(local.project_catalog)),
   )
 
-  # Infer vpc dependency for lambda when lambda_config_json has network.enabled = true
-  _lambda_needs_vpc = try(
-    jsondecode(lookup(try(local.requested_projects["lambda"].inputs, {}), "lambda_config_json", "{}")).network.enabled,
-    false,
-  )
+  # Infer vpc dependency for lambda when lambda_config_json.network.enabled = true
+  _lambda_needs_vpc = try(local.requested_projects["lambda"].inputs["lambda_config_json"].network.enabled, false)
 
   enabled_projects = {
     for project_key, project in local.requested_projects : project_key => merge(project, {
@@ -323,13 +320,13 @@ resource "tfe_workspace" "project" {
     }
 
     precondition {
-      condition     = each.key != "lambda" || !contains(keys(local.enabled_projects[each.key].inputs), "lambda_config_json") || can(jsondecode(local.enabled_projects[each.key].inputs["lambda_config_json"]))
-      error_message = "Project 'lambda' input 'lambda_config_json' is not valid JSON."
+      condition     = each.key != "lambda" || !contains(keys(local.enabled_projects[each.key].inputs), "lambda_config_json") || can(keys(local.enabled_projects[each.key].inputs["lambda_config_json"]))
+      error_message = "Project 'lambda' input 'lambda_config_json' must be a JSON object, not a quoted JSON string."
     }
 
     precondition {
-      condition     = each.key != "api" || !contains(keys(local.enabled_projects[each.key].inputs), "api_config_json") || can(jsondecode(local.enabled_projects[each.key].inputs["api_config_json"]))
-      error_message = "Project 'api' input 'api_config_json' is not valid JSON."
+      condition     = each.key != "api" || !contains(keys(local.enabled_projects[each.key].inputs), "api_config_json") || can(keys(local.enabled_projects[each.key].inputs["api_config_json"]))
+      error_message = "Project 'api' input 'api_config_json' must be a JSON object, not a quoted JSON string."
     }
   }
 

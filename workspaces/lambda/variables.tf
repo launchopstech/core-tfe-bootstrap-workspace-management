@@ -64,10 +64,11 @@ variable "vpc_workspace_name" {
   default     = ""
 }
 
-# ── Lambda configuration (JSON blob) ──────────────────────────────────────────
+# ── Lambda configuration (object) ─────────────────────────────────────────────
 variable "lambda_config_json" {
   description = <<-EOT
-    JSON-encoded Lambda configuration. Expected shape:
+    Lambda configuration object. In .tf.json files, provide this as a nested
+    JSON object, not a quoted JSON string. Expected shape:
     {
       "function_name_suffix": "my-worker",
       "package":     { "bucket": "artifacts", "key": "worker-v1.zip" },
@@ -79,7 +80,12 @@ variable "lambda_config_json" {
       "iam":         { "additional_policy_json": "" }
     }
   EOT
-  type        = string
+  type        = any
+
+  validation {
+    condition     = can(keys(var.lambda_config_json))
+    error_message = "lambda_config_json must be a JSON object, not a quoted JSON string."
+  }
 }
 
 variable "tags" {

@@ -304,6 +304,8 @@ The key for each entry is any stable unique identifier for that account entry. T
 - `rds` requires both `secure-baseline` and `vpc` in `services`
 - `rds` requires `service_workspace_variables["rds"].kms_key_arn` (the platform KMS key ARN from the CFN bootstrap)
 - if `rds` is enabled, `service_workspace_variables["vpc"].database_subnets` is also required so the VPC workspace can create a DB subnet group
+- if `api` includes any Lambda with `needs_db = true`, `service_workspace_variables["api"].api_config_json` must include `database.iam_username` for an existing DB role that can use IAM auth through RDS Proxy
+- `service_workspace_variables["lambda"].lambda_config_json` and `service_workspace_variables["api"].api_config_json` should be nested JSON objects in `accounts.tf.json`, not quoted JSON strings
 
 ---
 
