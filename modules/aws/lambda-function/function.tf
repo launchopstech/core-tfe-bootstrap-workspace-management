@@ -29,8 +29,8 @@ module "lambda" {
   cloudwatch_logs_kms_key_id        = var.kms_key_arn
 
   # IAM — attach additional inline policy if provided
-  attach_policy_json = local.has_policy
-  policy_json        = local.has_policy ? var.additional_policy_json : null
+  attach_policy_json = var.attach_additional_policy_json
+  policy_json        = var.additional_policy_json
 
   tags = local.base_tags
 }

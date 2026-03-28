@@ -20,6 +20,7 @@ module "lambdas" {
   vpc_id     = try(each.value.needs_vpc, false) || try(each.value.needs_db, false) ? local.vpc_id : null
   subnet_ids = try(each.value.needs_vpc, false) || try(each.value.needs_db, false) ? local.private_subnet_ids : []
 
-  environment_variables  = local.lambda_env_vars[each.key]
-  additional_policy_json = try(data.aws_iam_policy_document.lambda[each.key].json, "")
+  environment_variables         = local.lambda_env_vars[each.key]
+  attach_additional_policy_json = contains(keys(local.lambdas_with_policies), each.key)
+  additional_policy_json        = try(data.aws_iam_policy_document.lambda[each.key].json, "")
 }

@@ -88,6 +88,12 @@ variable "additional_policy_json" {
   default     = ""
 }
 
+variable "attach_additional_policy_json" {
+  description = "Whether to attach additional_policy_json. Set this explicitly when the policy JSON may be unknown during plan."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Additional tags to apply to resources."
   type        = map(string)
