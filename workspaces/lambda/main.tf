@@ -5,8 +5,8 @@ module "lambda" {
   client_id                     = var.client_id
   environment                   = var.environment
   description                   = "Standalone Lambda for ${var.client_id} ${var.environment} (${local.function_name_suffix})."
-  s3_bucket                     = local.s3_bucket
-  s3_key                        = local.s3_key
+  s3_bucket                     = local.create_package_bucket ? module.code_bucket[0].bucket_id : local.resolved_s3_bucket
+  s3_key                        = local.resolved_s3_key
   handler                       = local.handler
   runtime                       = local.runtime
   memory_size                   = local.memory_size

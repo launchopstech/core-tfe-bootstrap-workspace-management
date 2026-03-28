@@ -69,13 +69,14 @@ Resources:
 
   ##############################################################################
   # TerraformDeployPolicy — least-privilege policy for platform services
-  # Covers: vpc, eks, rds, s3, kms, iam-access, secure-baseline, account-bootstrap
+  # Covers: vpc, eks, rds, lambda, api-gateway, s3, kms, iam-access,
+  # secure-baseline, account-bootstrap
   ##############################################################################
   TerraformDeployPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
       ManagedPolicyName: TerraformDeployPolicy
-      Description: "Least-privilege policy for HCP Terraform workspaces: VPC, EKS, RDS, S3, KMS, CloudTrail, Config, GuardDuty, and scoped IAM."
+      Description: "Least-privilege policy for HCP Terraform workspaces: VPC, EKS, RDS, Lambda, API Gateway, S3, KMS, CloudTrail, Config, GuardDuty, and scoped IAM."
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -99,6 +100,20 @@ Resources:
             Effect: Allow
             Action:
               - rds:*
+            Resource: "*"
+
+          # ── Lambda ───────────────────────────────────────────────────────────
+          - Sid: Lambda
+            Effect: Allow
+            Action:
+              - lambda:*
+            Resource: "*"
+
+          # ── API Gateway ──────────────────────────────────────────────────────
+          - Sid: APIGateway
+            Effect: Allow
+            Action:
+              - apigateway:*
             Resource: "*"
 
           # ── S3 ───────────────────────────────────────────────────────────────
@@ -209,6 +224,7 @@ Resources:
                   - ec2.amazonaws.com
                   - eks.amazonaws.com
                   - rds.amazonaws.com
+                  - apigateway.amazonaws.com
                   - config.amazonaws.com
                   - cloudtrail.amazonaws.com
                   - elasticloadbalancing.amazonaws.com

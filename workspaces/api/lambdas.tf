@@ -7,8 +7,8 @@ module "lambdas" {
   client_id     = var.client_id
   environment   = var.environment
   description   = "API Lambda ${each.key} for ${var.client_id} ${var.environment}."
-  s3_bucket     = local.artifacts.bucket
-  s3_key        = "${local.artifacts.key_prefix}/${each.key}-${local.artifacts.version}.zip"
+  s3_bucket     = local.create_artifacts_bucket ? module.code_bucket[0].bucket_id : local.resolved_artifacts_bucket
+  s3_key        = "${local.resolved_artifacts_key_prefix}/${each.key}-${local.resolved_artifacts_version}.zip"
   handler       = try(each.value.handler, "bootstrap")
   runtime       = try(each.value.runtime, "provided.al2023")
   memory_size   = try(each.value.memory_mb, 256)

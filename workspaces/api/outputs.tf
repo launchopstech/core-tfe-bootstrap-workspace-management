@@ -3,6 +3,11 @@ output "api_endpoint" {
   value       = local.gateway_enabled ? module.api_gateway[0].stage_invoke_url : null
 }
 
+output "artifacts_bucket_name" {
+  description = "S3 bucket name used for Lambda code artifacts."
+  value       = local.create_artifacts_bucket ? module.code_bucket[0].bucket_id : local.resolved_artifacts_bucket
+}
+
 output "api_id" {
   description = "API Gateway REST API ID (null if gateway disabled)."
   value       = local.gateway_enabled ? module.api_gateway[0].api_id : null

@@ -6,8 +6,9 @@ locals {
   function_name        = "${var.client_id}-${var.environment}-${local.function_name_suffix}"
 
   # Package
-  s3_bucket = local.config.package.bucket
-  s3_key    = local.config.package.key
+  configured_s3_bucket  = trimspace(try(local.config.package.bucket, ""))
+  configured_s3_key     = trimspace(try(local.config.package.key, ""))
+  create_package_bucket = try(local.config.package.create_bucket, false)
 
   # Runtime
   handler = try(local.config.runtime.handler, "bootstrap")
@@ -25,6 +26,12 @@ locals {
 
   # IAM
   additional_policy_json = try(local.config.iam.additional_policy_json, "")
+
+  default_package_bucket_name = local.configured_s3_bucket != "" ? local.configured_s3_bucket : (
+    var.aws_account_id != null && trimspace(var.aws_account_id) != "" ? "${var.client_id}-${var.environment}-${var.aws_account_id}-lambda-code" : "${var.client_id}-${var.environment}-lambda-code"
+  )
+  resolved_s3_bucket = local.create_package_bucket ? local.default_package_bucket_name : local.configured_s3_bucket
+  resolved_s3_key    = local.configured_s3_key != "" ? local.configured_s3_key : "lambda/${local.function_name_suffix}.zip"
 }
 
 # ── Cross-workspace derived values ────────────────────────────────────────────
