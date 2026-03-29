@@ -18,4 +18,6 @@ module "lambda" {
   attach_additional_policy_json = trimspace(local.additional_policy_json) != ""
   additional_policy_json        = local.additional_policy_json
   tags                          = var.tags
+
+  depends_on = [aws_s3_object.seed_package]
 }

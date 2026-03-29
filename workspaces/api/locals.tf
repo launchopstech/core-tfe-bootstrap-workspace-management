@@ -14,6 +14,7 @@ locals {
   configured_artifacts_key_prefix = trimspace(try(local.artifacts.key_prefix, ""))
   configured_artifacts_version    = trimspace(try(local.artifacts.version, ""))
   create_artifacts_bucket         = try(local.artifacts.create_bucket, false)
+  upload_seed_artifacts           = try(local.artifacts.upload_seed_code, false)
 
   default_artifacts_bucket_name = local.configured_artifacts_bucket != "" ? local.configured_artifacts_bucket : (
     var.aws_account_id != null && trimspace(var.aws_account_id) != "" ? "${local.name_prefix}-${var.aws_account_id}-api-code" : "${local.name_prefix}-api-code"

@@ -51,11 +51,12 @@
               "package": {
                 "bucket": "test-client-dev-lambda-code",
                 "key": "lambda/test-worker-v0.1.0.zip",
-                "create_bucket": true
+                "create_bucket": true,
+                "upload_seed_code": true
               },
               "runtime": {
-                "handler": "bootstrap",
-                "runtime": "provided.al2023"
+                "handler": "hello.handler",
+                "runtime": "python3.12"
               },
               "performance": {
                 "memory_mb": 256,
@@ -115,24 +116,30 @@
               "lambdas": {
                 "crud": {
                   "function_name_suffix": "api-crud",
+                  "handler": "hello.handler",
                   "memory_mb": 256,
                   "timeout_seconds": 30,
+                  "runtime": "python3.12",
                   "needs_vpc": true,
                   "needs_db": true,
                   "needs_uploads": false
                 },
                 "presign": {
                   "function_name_suffix": "api-presign",
+                  "handler": "hello.handler",
                   "memory_mb": 128,
                   "timeout_seconds": 10,
+                  "runtime": "python3.12",
                   "needs_vpc": false,
                   "needs_db": false,
                   "needs_uploads": true
                 },
                 "authorizer": {
                   "function_name_suffix": "api-authorizer",
+                  "handler": "authorizer.handler",
                   "memory_mb": 128,
                   "timeout_seconds": 10,
+                  "runtime": "python3.12",
                   "needs_vpc": false,
                   "needs_db": false,
                   "needs_uploads": false
@@ -142,6 +149,7 @@
                 "bucket": "test-client-dev-api-code",
                 "create_bucket": true,
                 "key_prefix": "api",
+                "upload_seed_code": true,
                 "version": "v0.1.0"
               },
               "database": {

@@ -23,4 +23,6 @@ module "lambdas" {
   environment_variables         = local.lambda_env_vars[each.key]
   attach_additional_policy_json = contains(keys(local.lambdas_with_policies), each.key)
   additional_policy_json        = try(data.aws_iam_policy_document.lambda[each.key].json, "")
+
+  depends_on = [aws_s3_object.seed_artifacts]
 }
