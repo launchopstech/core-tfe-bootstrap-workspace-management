@@ -27,8 +27,10 @@ data "archive_file" "seed_artifacts" {
 resource "aws_s3_object" "seed_artifacts" {
   for_each = data.archive_file.seed_artifacts
 
-  bucket       = local.create_artifacts_bucket ? module.code_bucket[0].bucket_id : local.resolved_artifacts_bucket
-  key          = "${local.resolved_artifacts_key_prefix}/${each.key}-${local.resolved_artifacts_version}.zip"
-  source       = each.value.output_path
-  content_type = "application/zip"
+  bucket                 = local.create_artifacts_bucket ? module.code_bucket[0].bucket_id : local.resolved_artifacts_bucket
+  key                    = "${local.resolved_artifacts_key_prefix}/${each.key}-${local.resolved_artifacts_version}.zip"
+  source                 = each.value.output_path
+  content_type           = "application/zip"
+  server_side_encryption = "aws:kms"
+  kms_key_id             = local.kms_key_arn
 }
