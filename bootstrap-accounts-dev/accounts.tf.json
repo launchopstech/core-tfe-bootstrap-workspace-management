@@ -55,7 +55,7 @@
                 "upload_seed_code": true
               },
               "runtime": {
-                "handler": "hello.handler",
+                "handler": "seed_handler.handler",
                 "runtime": "python3.12"
               },
               "performance": {
@@ -116,7 +116,7 @@
               "lambdas": {
                 "crud": {
                   "function_name_suffix": "api-crud",
-                  "handler": "hello.handler",
+                  "handler": "seed_handler.handler",
                   "memory_mb": 256,
                   "timeout_seconds": 30,
                   "runtime": "python3.12",
@@ -126,7 +126,7 @@
                 },
                 "presign": {
                   "function_name_suffix": "api-presign",
-                  "handler": "hello.handler",
+                  "handler": "seed_handler.handler",
                   "memory_mb": 128,
                   "timeout_seconds": 10,
                   "runtime": "python3.12",
@@ -136,7 +136,7 @@
                 },
                 "authorizer": {
                   "function_name_suffix": "api-authorizer",
-                  "handler": "authorizer.handler",
+                  "handler": "seed_authorizer.handler",
                   "memory_mb": 128,
                   "timeout_seconds": 10,
                   "runtime": "python3.12",

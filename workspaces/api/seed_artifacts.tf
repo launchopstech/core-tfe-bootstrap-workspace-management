@@ -5,8 +5,19 @@ locals {
   } : {}
 }
 
+resource "terraform_data" "seed_artifact_generation" {
+  for_each = local.seed_artifact_source_files
+
+  # Changes to the underlying source file should force the archive to be
+  # re-read during apply on the same remote worker that uploads the S3 object.
+  input = filesha256(each.value)
+}
+
 data "archive_file" "seed_artifacts" {
   for_each = local.seed_artifact_source_files
+  depends_on = [
+    terraform_data.seed_artifact_generation,
+  ]
 
   type        = "zip"
   source_file = each.value
