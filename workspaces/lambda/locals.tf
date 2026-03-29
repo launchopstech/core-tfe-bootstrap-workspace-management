@@ -9,6 +9,7 @@ locals {
   configured_s3_bucket  = trimspace(try(local.config.package.bucket, ""))
   configured_s3_key     = trimspace(try(local.config.package.key, ""))
   create_package_bucket = try(local.config.package.create_bucket, false)
+  upload_seed_package   = try(local.config.package.upload_seed_code, false)
 
   # Runtime
   handler = try(local.config.runtime.handler, "bootstrap")

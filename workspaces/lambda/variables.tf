@@ -71,7 +71,7 @@ variable "lambda_config_json" {
     JSON object, not a quoted JSON string. Expected shape:
     {
       "function_name_suffix": "my-worker",
-      "package":     { "bucket": "lambda-code", "key": "worker-v1.zip", "create_bucket": false },
+      "package":     { "bucket": "lambda-code", "key": "worker-v1.zip", "create_bucket": false, "upload_seed_code": false },
       "runtime":     { "handler": "bootstrap", "runtime": "provided.al2023" },
       "performance": { "memory_mb": 256, "timeout_seconds": 30 },
       "environment": { "KEY": "value" },
@@ -82,7 +82,10 @@ variable "lambda_config_json" {
 
     When package.create_bucket = true, this workspace creates the configured
     S3 code bucket so an external build/deploy pipeline can upload the Lambda
-    ZIP there. This workspace does not generate demo code or upload ZIPs.
+    ZIP there. When package.upload_seed_code = true, this workspace also
+    packages a seed ZIP from workspaces/seed_code and uploads it to
+    the final artifact key so first-time applies can succeed before the real
+    pipeline overwrites that same key.
   EOT
   type        = any
 

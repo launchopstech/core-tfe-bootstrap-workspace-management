@@ -249,6 +249,7 @@ Goal: each AWS service (vpc, rds, eks, etc.) runs in its own project workspace, 
 - [ ] add HCP Terraform backend block in each workspace root — `organization` and `workspace_name` from environment variables
 - [ ] define `variables.tf` for each workspace root covering only service-specific inputs
 - [ ] validate service dependency rules at apply time (eks workspace requires vpc workspace output)
+- [ ] add Lambda artifact version pinning (`s3_object_version`) to the API and standalone Lambda roots so seed artifacts and CI-published artifacts are immutable and deploys are reproducible
 
 **Control plane extension (feeds into Phase 7):**
 - [ ] extend `bootstrap-accounts/` module to set `selected_services` workspace variable on account-portal workspace
