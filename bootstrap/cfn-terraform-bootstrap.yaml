@@ -304,14 +304,23 @@ Resources:
             Resource: "*"
 
           # ── Explicit deny: S3 data exfiltration ──────────────────────────────
-          # Prevents reading object data or making buckets publicly accessible.
-          # Note: s3:PutBucketPolicy is allowed because secure-baseline must set
-          # bucket policies for CloudTrail and Config log delivery.
-          - Sid: DenyS3DataExfiltration
+          # Prevents reading arbitrary object data while still allowing Terraform
+          # to manage the per-client Lambda code buckets it owns.
+          - Sid: DenyS3ObjectReadExceptClientCodeBuckets
             Effect: Deny
             Action:
               - s3:GetObject
               - s3:GetObjectVersion
+            NotResource:
+              - !Sub "arn:aws:s3:::${ClientId}-*-api-code/*"
+              - !Sub "arn:aws:s3:::${ClientId}-*-lambda-code/*"
+
+          # Prevents making buckets or objects publicly accessible.
+          # Note: s3:PutBucketPolicy is allowed because secure-baseline must set
+          # bucket policies for CloudTrail and Config log delivery.
+          - Sid: DenyS3AclChanges
+            Effect: Deny
+            Action:
               - s3:PutBucketAcl
               - s3:PutObjectAcl
             Resource: "*"
