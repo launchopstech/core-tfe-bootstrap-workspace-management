@@ -1,5 +1,16 @@
+resource "terraform_data" "seed_package_generation" {
+  count = local.upload_seed_package ? 1 : 0
+
+  # Changes to the seed source should force the archive to be re-read during
+  # apply on the same remote worker that uploads the S3 object.
+  input = filesha256("${path.module}/../seed_code/seed_handler.py")
+}
+
 data "archive_file" "seed_package" {
   count = local.upload_seed_package ? 1 : 0
+  depends_on = [
+    terraform_data.seed_package_generation,
+  ]
 
   type        = "zip"
   source_file = "${path.module}/../seed_code/seed_handler.py"
