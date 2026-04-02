@@ -288,6 +288,10 @@ Example provider mappings:
 - [ ] document the app-repo release flow: build Lambda ZIPs, upload to a versioned S3 artifact bucket, deploy from bucket/key/object-version
 - [ ] validate API artifact and auth inputs at the control-plane and portal layers so bad config fails before deploy
 - [ ] document client-admin and operator workflow for bumping `artifact_version` and promoting API releases safely
+- [ ] add API keys, usage plans, and quotas as the next API Gateway capability slice after custom domains
+- [ ] add a `dns` blueprint for delegated public Route53 zones used by API custom domains
+- [ ] allow `api` custom domains to inherit hosted zone IDs from a sibling `dns` workspace when `hosted_zone_id` is omitted
+- [ ] document the manual parent-zone NS delegation and cutover workflow for delegated API environments
 
 ### Phase 3 — Orchestration
 

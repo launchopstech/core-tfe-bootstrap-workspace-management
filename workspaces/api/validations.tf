@@ -40,5 +40,40 @@ resource "terraform_data" "api_config_validation" {
       condition     = !local.gateway_enabled || length(try(local.gw.cors.allowed_origins, ["*"])) == 1
       error_message = "gateway.cors.allowed_origins requires exactly one origin for this REST API blueprint. Use a single origin or [\"*\"]."
     }
+
+    precondition {
+      condition     = local.gateway_enabled || length(local.custom_domains) == 0
+      error_message = "gateway.custom_domains can only be used when gateway.enabled = true."
+    }
+
+    precondition {
+      condition     = !local.custom_domains_need_dns || (var.dns_workspace_name != null && trimspace(var.dns_workspace_name) != "")
+      error_message = "gateway.custom_domains entries without hosted_zone_id require dns_workspace_name so the hosted zone can be read from a sibling dns workspace."
+    }
+
+    precondition {
+      condition = alltrue([
+        for key, domain in local.resolved_custom_domains :
+        trimspace(domain.domain_name) != "" &&
+        can(regex("^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$", trimspace(domain.domain_name))) &&
+        trimspace(domain.hosted_zone_id) != "" &&
+        can(regex("^Z[A-Z0-9]+$", upper(trimspace(domain.hosted_zone_id))))
+      ])
+      error_message = "Each gateway.custom_domains entry requires a valid domain_name and a usable same-account Route53 hosted zone ID, either set directly or read from dns_workspace_name."
+    }
+
+    precondition {
+      condition     = length(distinct(local.normalized_custom_domain_names)) == length(local.normalized_custom_domain_names)
+      error_message = "gateway.custom_domains domain_name values must be unique."
+    }
+
+    precondition {
+      condition = alltrue([
+        for key, domain in local.custom_domains :
+        !startswith(trimspace(try(domain.base_path, "")), "/") &&
+        !endswith(trimspace(try(domain.base_path, "")), "/")
+      ])
+      error_message = "gateway.custom_domains base_path must omit leading and trailing slashes. Use an empty string for root mapping or a value like \"api\"."
+    }
   }
 }

@@ -15,5 +15,11 @@ data "tfe_outputs" "rds" {
   workspace    = var.rds_workspace_name
 }
 
+data "tfe_outputs" "dns" {
+  count        = local.use_dns_workspace ? 1 : 0
+  organization = var.hcp_terraform_organization
+  workspace    = var.dns_workspace_name
+}
+
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}

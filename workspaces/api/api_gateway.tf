@@ -35,5 +35,7 @@ module "api_gateway" {
 
   stage = try(local.gw.stage, {})
 
+  custom_domains = local.resolved_custom_domains
+
   tags = var.tags
 }

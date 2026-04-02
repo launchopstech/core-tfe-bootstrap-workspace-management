@@ -18,6 +18,7 @@
           "secure-baseline",
           "vpc",
           "rds",
+          "dns",
           "lambda",
           "api"
         ],
@@ -44,6 +45,12 @@
             "deletion_protection": false,
             "enable_performance_insights": false,
             "enable_enhanced_monitoring": false
+          },
+          "dns": {
+            "dns_config_json": {
+              "zone_name": "dev.mindrithm.app",
+              "comment": "Delegated development public zone for API custom domains"
+            }
           },
           "lambda": {
             "lambda_config_json": {
@@ -85,6 +92,12 @@
                 },
                 "stage": {
                   "name": "v1"
+                },
+                "custom_domains": {
+                  "primary": {
+                    "domain_name": "api.dev.mindrithm.app",
+                    "base_path": ""
+                  }
                 },
                 "authorizers": {
                   "token": {
