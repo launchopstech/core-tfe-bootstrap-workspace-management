@@ -61,6 +61,16 @@ resource "tfe_workspace" "bootstrap_account" {
       condition     = each.value.vcs_repo_identifier != "bootstrap"
       error_message = "Account '${each.key}': vcs_repo_identifier must be set to a real repo (org/repo). Got default placeholder 'bootstrap'."
     }
+
+    precondition {
+      condition     = length(local.account_invalid_service_ownership_keys[each.key]) == 0
+      error_message = "Account '${each.key}': service_workspace_ownership contains unsupported blueprints: ${join(", ", sort(tolist(local.account_invalid_service_ownership_keys[each.key])))}. Supported ownership overrides: ${join(", ", sort(tolist(local._ownership_overridable_services)))}."
+    }
+
+    precondition {
+      condition     = length(local.account_invalid_service_ownership_values[each.key]) == 0
+      error_message = "Account '${each.key}': service_workspace_ownership values must be either client or agency. Invalid entries: ${join(", ", sort(tolist(local.account_invalid_service_ownership_values[each.key])))}."
+    }
   }
 }
 

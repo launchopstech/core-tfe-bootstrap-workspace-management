@@ -23,6 +23,11 @@ output "api_id" {
   value       = local.gateway_enabled ? module.api_gateway[0].api_id : null
 }
 
+output "api_stage_arn" {
+  description = "ARN of the deployed API Gateway stage (null if gateway disabled)."
+  value       = local.gateway_enabled ? module.api_gateway[0].stage_arn : null
+}
+
 output "rds_proxy_endpoint" {
   description = "RDS Proxy endpoint (null if proxy disabled)."
   value       = try(module.rds_proxy[0].proxy_endpoint, null)

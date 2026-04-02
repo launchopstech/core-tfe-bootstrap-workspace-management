@@ -9,6 +9,7 @@ locals {
   artifacts   = try(local.config.artifacts, { bucket = "", key_prefix = "", version = "" })
   db_cfg      = try(local.config.database, { proxy_enabled = false })
   uploads_cfg = try(local.config.uploads, { enabled = false })
+  waf_cfg     = try(local.gw.waf, { enabled = false })
 
   configured_artifacts_bucket     = trimspace(try(local.artifacts.bucket, ""))
   configured_artifacts_key_prefix = trimspace(try(local.artifacts.key_prefix, ""))
@@ -33,10 +34,12 @@ locals {
   has_custom_domains = length(local.custom_domains) > 0
   proxy_enabled      = try(local.db_cfg.proxy_enabled, false)
   uploads_enabled    = try(local.uploads_cfg.enabled, false)
+  waf_enabled        = local.gateway_enabled && try(local.waf_cfg.enabled, false)
   custom_domains_need_dns = try(anytrue([
     for key, domain in local.custom_domains : trimspace(try(domain.hosted_zone_id, "")) == ""
   ]), false)
   use_dns_workspace = local.custom_domains_need_dns && var.dns_workspace_name != null && trimspace(var.dns_workspace_name) != ""
+  use_waf_workspace = local.waf_enabled && var.waf_workspace_name != null && trimspace(var.waf_workspace_name) != ""
 
   # needs_db implies VPC attachment — DB Lambdas always go through RDS Proxy in VPC
   needs_vpc = local.has_lambdas && anytrue([for k, v in local.lambdas : try(v.needs_vpc, false) || try(v.needs_db, false)]) || local.proxy_enabled
@@ -55,17 +58,20 @@ locals {
 
 # ── Cross-workspace derived values (conditional) ────────────────────────────────
 locals {
-  kms_key_arn        = nonsensitive(data.tfe_outputs.secure_baseline.values.kms_key_arn)
-  vpc_id             = local.needs_vpc ? nonsensitive(data.tfe_outputs.vpc[0].values.vpc_id) : null
-  private_subnet_ids = local.needs_vpc ? nonsensitive(data.tfe_outputs.vpc[0].values.private_subnet_ids) : []
-  db_identifier      = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_identifier) : null
-  db_secret_arn      = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_secret_arn) : null
-  rds_sg_id          = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.security_group_id) : null
-  is_cluster         = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.enable_cluster) : false
-  db_resource_id     = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_resource_id) : null
-  db_username        = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_username) : null
-  db_name            = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_name) : null
-  dns_hosted_zone_id = local.use_dns_workspace ? try(nonsensitive(data.tfe_outputs.dns[0].values.hosted_zone_id), null) : null
+  kms_key_arn         = nonsensitive(data.tfe_outputs.secure_baseline.values.kms_key_arn)
+  vpc_id              = local.needs_vpc ? nonsensitive(data.tfe_outputs.vpc[0].values.vpc_id) : null
+  private_subnet_ids  = local.needs_vpc ? nonsensitive(data.tfe_outputs.vpc[0].values.private_subnet_ids) : []
+  db_identifier       = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_identifier) : null
+  db_secret_arn       = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_secret_arn) : null
+  rds_sg_id           = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.security_group_id) : null
+  is_cluster          = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.enable_cluster) : false
+  db_resource_id      = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_resource_id) : null
+  db_username         = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_username) : null
+  db_name             = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_name) : null
+  dns_hosted_zone_id  = local.use_dns_workspace ? try(nonsensitive(data.tfe_outputs.dns[0].values.hosted_zone_id), null) : null
+  waf_web_acl_arn     = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.web_acl_arn), null) : null
+  waf_scope           = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.scope), null) : null
+  waf_attachment_mode = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.attachment_mode), null) : null
 }
 
 # ── Custom domain resolution ───────────────────────────────────────────────────
