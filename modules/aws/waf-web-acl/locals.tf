@@ -7,7 +7,7 @@ locals {
 
   normalized_attachment = {
     mode         = lower(trimspace(var.attachment.mode))
-    resource_arn = trimspace(coalesce(try(var.attachment.resource_arn, null), ""))
+    resource_arn = try(trimspace(var.attachment.resource_arn), "")
   }
 
   normalized_logging = {
@@ -75,7 +75,7 @@ locals {
       positional_constraint = upper(trimspace(try(rule.positional_constraint, "CONTAINS")))
       field_to_match = {
         type              = lower(trimspace(rule.field_to_match.type))
-        name              = trimspace(coalesce(try(rule.field_to_match.name, null), ""))
+        name              = try(trimspace(rule.field_to_match.name), "")
         oversize_handling = upper(trimspace(try(rule.field_to_match.oversize_handling, "CONTINUE")))
       }
       text_transformations = [
