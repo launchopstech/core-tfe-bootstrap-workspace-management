@@ -19,9 +19,13 @@
           "vpc",
           "rds",
           "dns",
+          "waf",
           "lambda",
           "api"
         ],
+        "service_workspace_ownership": {
+          "waf": "client"
+        },
         "service_workspace_variables": {
           "vpc": {
             "cidr_block": "10.0.0.0/16",
@@ -50,6 +54,28 @@
             "dns_config_json": {
               "zone_name": "dev.mindrithm.app",
               "comment": "Delegated development public zone for API custom domains"
+            }
+          },
+          "waf": {
+            "waf_config_json": {
+              "default_action": "allow",
+              "scope": "REGIONAL",
+              "attachment": {
+                "mode": "target"
+              },
+              "logging": {
+                "enabled": true,
+                "retention_days": 30,
+                "redacted_headers": ["authorization"]
+              },
+              "rate_rules": {
+                "global": {
+                  "priority": 200,
+                  "limit": 2000,
+                  "aggregate_key_type": "IP",
+                  "action": "block"
+                }
+              }
             }
           },
           "lambda": {
@@ -92,6 +118,9 @@
                 },
                 "stage": {
                   "name": "v1"
+                },
+                "waf": {
+                  "enabled": true
                 },
                 "custom_domains": {
                   "primary": {
