@@ -25,6 +25,41 @@ variable "authorizers" {
   default = {}
 }
 
+variable "custom_domains" {
+  description = "Optional map of resolved custom domains for this Regional REST API. Each entry provisions ACM, Route53 validation, API Gateway custom domain, and a base path mapping. This lower-level module expects hosted_zone_id to already be resolved."
+  type = map(object({
+    domain_name    = string
+    hosted_zone_id = string
+    base_path      = optional(string, "")
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for key, domain in var.custom_domains :
+      trimspace(domain.domain_name) != "" &&
+      can(regex("^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$", trimspace(domain.domain_name))) &&
+      trimspace(domain.hosted_zone_id) != "" &&
+      can(regex("^Z[A-Z0-9]+$", upper(trimspace(domain.hosted_zone_id))))
+    ])
+    error_message = "Each custom domain requires a non-empty domain_name and Route53 hosted_zone_id. Domain names must be valid hostnames and hosted_zone_id must look like a Route53 zone ID (for example Z1234567890)."
+  }
+
+  validation {
+    condition     = length(distinct([for key, domain in var.custom_domains : lower(trimspace(domain.domain_name))])) == length(var.custom_domains)
+    error_message = "custom_domains domain_name values must be unique."
+  }
+
+  validation {
+    condition = alltrue([
+      for key, domain in var.custom_domains :
+      !startswith(trimspace(try(domain.base_path, "")), "/") &&
+      !endswith(trimspace(try(domain.base_path, "")), "/")
+    ])
+    error_message = "custom_domains base_path must omit leading and trailing slashes. Use an empty string for root mapping or a value like \"api\"."
+  }
+}
+
 variable "integrations" {
   description = "Map of Lambda integrations. Key is referenced by routes."
   type = map(object({

@@ -15,21 +15,28 @@ locals {
   configured_artifacts_version    = trimspace(try(local.artifacts.version, ""))
   create_artifacts_bucket         = try(local.artifacts.create_bucket, false)
   upload_seed_artifacts           = try(local.artifacts.upload_seed_code, false)
+  custom_domains                  = try(local.gw.custom_domains, {})
 
   default_artifacts_bucket_name = local.configured_artifacts_bucket != "" ? local.configured_artifacts_bucket : (
     var.aws_account_id != null && trimspace(var.aws_account_id) != "" ? "${local.name_prefix}-${var.aws_account_id}-api-code" : "${local.name_prefix}-api-code"
   )
-  resolved_artifacts_bucket     = local.create_artifacts_bucket ? local.default_artifacts_bucket_name : local.configured_artifacts_bucket
-  resolved_artifacts_key_prefix = local.configured_artifacts_key_prefix != "" ? local.configured_artifacts_key_prefix : "api"
-  resolved_artifacts_version    = local.configured_artifacts_version
+  resolved_artifacts_bucket      = local.create_artifacts_bucket ? local.default_artifacts_bucket_name : local.configured_artifacts_bucket
+  resolved_artifacts_key_prefix  = local.configured_artifacts_key_prefix != "" ? local.configured_artifacts_key_prefix : "api"
+  resolved_artifacts_version     = local.configured_artifacts_version
+  normalized_custom_domain_names = [for key, domain in local.custom_domains : lower(trimspace(try(domain.domain_name, "")))]
 }
 
 # ── Component enable flags ──────────────────────────────────────────────────────
 locals {
-  gateway_enabled = try(local.config.gateway, null) != null && try(local.gw.enabled, true)
-  has_lambdas     = length(local.lambdas) > 0
-  proxy_enabled   = try(local.db_cfg.proxy_enabled, false)
-  uploads_enabled = try(local.uploads_cfg.enabled, false)
+  gateway_enabled    = try(local.config.gateway, null) != null && try(local.gw.enabled, true)
+  has_lambdas        = length(local.lambdas) > 0
+  has_custom_domains = length(local.custom_domains) > 0
+  proxy_enabled      = try(local.db_cfg.proxy_enabled, false)
+  uploads_enabled    = try(local.uploads_cfg.enabled, false)
+  custom_domains_need_dns = try(anytrue([
+    for key, domain in local.custom_domains : trimspace(try(domain.hosted_zone_id, "")) == ""
+  ]), false)
+  use_dns_workspace = local.custom_domains_need_dns && var.dns_workspace_name != null && trimspace(var.dns_workspace_name) != ""
 
   # needs_db implies VPC attachment — DB Lambdas always go through RDS Proxy in VPC
   needs_vpc = local.has_lambdas && anytrue([for k, v in local.lambdas : try(v.needs_vpc, false) || try(v.needs_db, false)]) || local.proxy_enabled
@@ -58,6 +65,20 @@ locals {
   db_resource_id     = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_resource_id) : null
   db_username        = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_username) : null
   db_name            = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_name) : null
+  dns_hosted_zone_id = local.use_dns_workspace ? try(nonsensitive(data.tfe_outputs.dns[0].values.hosted_zone_id), null) : null
+}
+
+# ── Custom domain resolution ───────────────────────────────────────────────────
+locals {
+  resolved_custom_domains = {
+    for key, domain in local.custom_domains : key => {
+      domain_name = trimspace(try(domain.domain_name, ""))
+      hosted_zone_id = trimspace(try(domain.hosted_zone_id, "")) != "" ? upper(trimspace(try(domain.hosted_zone_id, ""))) : (
+        local.dns_hosted_zone_id != null ? upper(trimspace(local.dns_hosted_zone_id)) : ""
+      )
+      base_path = trimspace(try(domain.base_path, ""))
+    }
+  }
 }
 
 # ── Per-Lambda environment variables ──────────────────────────────────────────

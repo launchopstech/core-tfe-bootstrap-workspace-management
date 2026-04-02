@@ -18,6 +18,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ROOTS=(
   "workspaces/rds"
   "workspaces/vpc"
+  "workspaces/dns"
   "workspaces/lambda"
   "workspaces/api"
   "workspaces/secure-baseline"

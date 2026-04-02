@@ -31,6 +31,11 @@ locals {
       default_dependencies = toset(["vpc"])
       required_inputs      = toset([])
     }
+    dns = {
+      working_directory    = "workspaces/dns"
+      default_dependencies = toset([])
+      required_inputs      = toset(["dns_config_json"])
+    }
     lambda = {
       working_directory    = "workspaces/lambda"
       default_dependencies = toset(["secure-baseline"])
@@ -64,6 +69,11 @@ locals {
 
   # Infer vpc dependency for lambda when lambda_config_json.network.enabled = true
   _lambda_needs_vpc = try(local.requested_projects["lambda"].inputs["lambda_config_json"].network.enabled, false)
+  # Infer dns dependency for api when any custom domain omits hosted_zone_id
+  _api_needs_dns = try(anytrue([
+    for domain_key, domain in local.requested_projects["api"].inputs["api_config_json"].gateway.custom_domains :
+    trimspace(try(domain.hosted_zone_id, "")) == ""
+  ]), false)
 
   enabled_projects = {
     for project_key, project in local.requested_projects : project_key => merge(project, {
@@ -72,6 +82,8 @@ locals {
         project.requested_dependencies,
         # Infer vpc dependency for lambda when network.enabled = true
         project_key == "lambda" && local._lambda_needs_vpc ? toset(["vpc"]) : toset([]),
+        # Infer dns dependency for api when custom domains rely on dns workspace outputs
+        project_key == "api" && local._api_needs_dns ? toset(["dns"]) : toset([]),
       )
     })
     if project.enabled && contains(keys(local.project_catalog), project_key)
@@ -327,6 +339,11 @@ resource "tfe_workspace" "project" {
     precondition {
       condition     = each.key != "api" || !contains(keys(local.enabled_projects[each.key].inputs), "api_config_json") || can(keys(local.enabled_projects[each.key].inputs["api_config_json"]))
       error_message = "Project 'api' input 'api_config_json' must be a JSON object, not a quoted JSON string."
+    }
+
+    precondition {
+      condition     = each.key != "dns" || !contains(keys(local.enabled_projects[each.key].inputs), "dns_config_json") || can(keys(local.enabled_projects[each.key].inputs["dns_config_json"]))
+      error_message = "Project 'dns' input 'dns_config_json' must be a JSON object, not a quoted JSON string."
     }
   }
 

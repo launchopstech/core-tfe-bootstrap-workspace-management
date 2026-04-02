@@ -11,15 +11,16 @@ locals {
   # MVP portal support is intentionally narrow: clients can self-service only
   # these blueprints, while agency-managed workspaces stay under control-plane
   # ownership.
-  _client_requestable_services = toset(["vpc", "rds", "lambda", "api"])
+  _client_requestable_services = toset(["vpc", "rds", "dns", "lambda", "api"])
   _agency_managed_services     = toset(["secure-baseline"])
 
-  # Static dependency requirements. Lambda's VPC dependency is dynamic —
-  # inferred below from lambda_config_json.network.enabled when true.
+  # Static dependency requirements. Lambda's VPC dependency and API's DNS
+  # dependency are dynamic — inferred below from workspace config when needed.
   service_dependency_requirements = {
     "secure-baseline" = toset([])
     "vpc"             = toset(["secure-baseline"])
     "rds"             = toset(["secure-baseline", "vpc"])
+    "dns"             = toset([])
     "lambda"          = toset(["secure-baseline"])
     "api"             = toset(["secure-baseline", "vpc", "rds"])
   }
@@ -30,6 +31,7 @@ locals {
     "secure-baseline" = toset(["kms_key_arn"])
     "vpc"             = toset(["cidr_block", "azs", "private_subnets", "public_subnets"])
     "rds"             = toset([])
+    "dns"             = toset(["dns_config_json"])
     "lambda"          = toset(["lambda_config_json"])
     "api"             = toset(["api_config_json"])
   }
@@ -46,6 +48,15 @@ locals {
   _lambda_needs_vpc = {
     for k, account in var.accounts :
     k => try(account.service_workspace_variables.lambda.lambda_config_json.network.enabled, false)
+  }
+
+  # Infer DNS dependency for api when any custom domain omits hosted_zone_id.
+  _api_needs_dns = {
+    for k, account in var.accounts :
+    k => try(anytrue([
+      for domain_key, domain in account.service_workspace_variables.api.api_config_json.gateway.custom_domains :
+      trimspace(try(domain.hosted_zone_id, "")) == ""
+    ]), false)
   }
 
 }
@@ -98,6 +109,8 @@ locals {
             lookup(local._client_requestable_dependency_overrides, svc, {}),
             # Infer vpc dependency for lambda when network.enabled = true
             svc == "lambda" && local._lambda_needs_vpc[k] ? { depends_on = ["vpc"] } : {},
+            # Infer dns dependency for api when custom domains rely on dns workspace outputs
+            svc == "api" && local._api_needs_dns[k] ? { depends_on = ["vpc", "rds", "dns"] } : {},
           )
           if contains(local._client_requestable_services, svc)
         }
@@ -158,6 +171,8 @@ locals {
           lookup(local.service_dependency_requirements, svc, toset([])),
           # Infer vpc dependency for lambda when network.enabled = true
           svc == "lambda" && local._lambda_needs_vpc[k] ? toset(["vpc"]) : toset([]),
+          # Infer dns dependency for api when custom domains omit hosted_zone_id
+          svc == "api" && local._api_needs_dns[k] ? toset(["dns"]) : toset([]),
         ),
         toset(account.services),
       ))

@@ -3,6 +3,16 @@ output "api_endpoint" {
   value       = local.gateway_enabled ? module.api_gateway[0].stage_invoke_url : null
 }
 
+output "custom_domain_names" {
+  description = "Map of custom domain names keyed by gateway.custom_domains entry key."
+  value       = local.gateway_enabled ? module.api_gateway[0].custom_domain_names : {}
+}
+
+output "custom_domain_urls" {
+  description = "Map of custom domain URLs keyed by gateway.custom_domains entry key."
+  value       = local.gateway_enabled ? module.api_gateway[0].custom_domain_urls : {}
+}
+
 output "artifacts_bucket_name" {
   description = "S3 bucket name used for Lambda code artifacts."
   value       = local.create_artifacts_bucket ? module.code_bucket[0].bucket_id : local.resolved_artifacts_bucket

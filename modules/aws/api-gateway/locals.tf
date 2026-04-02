@@ -5,6 +5,14 @@ locals {
     Environment = var.environment
   })
 
+  custom_domains = {
+    for key, domain in var.custom_domains : key => {
+      domain_name    = trimspace(domain.domain_name)
+      hosted_zone_id = upper(trimspace(domain.hosted_zone_id))
+      base_path      = trimspace(try(domain.base_path, ""))
+    }
+  }
+
   # Flatten routes × methods into a map for for_each
   route_methods = merge([
     for rk, route in var.routes : {
@@ -20,6 +28,11 @@ locals {
 
   # CORS origin — validated to be exactly one origin
   cors_origin = var.cors.allowed_origins[0]
+
+  custom_domain_urls = {
+    for key, domain in local.custom_domains :
+    key => domain.base_path != "" ? "https://${domain.domain_name}/${domain.base_path}" : "https://${domain.domain_name}"
+  }
 
   # Integration lambdas — permission for API to invoke via any method/path
   integration_permissions = {

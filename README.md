@@ -282,12 +282,12 @@ The key for each entry is any stable unique identifier for that account entry. T
 | `region` | no | any AWS region, default: `us-east-1` | AWS region for this account |
 | `enable_aws_preflight` | no | default: `false` | When `true`, the hidden bootstrap workspace verifies HCP Terraform OIDC can assume `TerraformDeployRole` in the target AWS account. Leave `false` until AWS trust is ready. |
 | `security_tier` | yes | `standard`, `high` | Controls which security-tier variable set is attached |
-| `services` | no | default: `[]` | Desired services for this account. Used to seed agency-managed workspaces (`secure-baseline`) and initial account-portal `project_requests_json` entries for `vpc` and `rds` |
+| `services` | no | default: `[]` | Desired services for this account. Used to seed agency-managed workspaces (`secure-baseline`) and initial account-portal `project_requests_json` entries for client-facing blueprints such as `vpc`, `rds`, `dns`, `lambda`, and `api` |
 | `service_family` | no | any string, default: `platform` | Logical service grouping — used as a workspace tag |
 | `client_admin_team_name` | no | HCP Terraform team name | If set, the named team gets write access to the account portal and any client-facing child deployer workspaces it creates |
 | `vcs_repo_identifier` | yes | `org/repo` format | GitHub repo the workspace VCS integration points at |
 | `service_vcs_repo_identifier` | no | `org/repo` format | Optional override repo for child deployer workspaces. If omitted, the portal uses the same repo as `vcs_repo_identifier` |
-| `service_workspace_variables` | no | map keyed by service name | Terraform variables used to seed agency-managed workspaces and the initial portal request document, for example `kms_key_arn` for `secure-baseline`, network CIDRs for `vpc`, and `kms_key_arn` + instance config for `rds` |
+| `service_workspace_variables` | no | map keyed by service name | Terraform variables used to seed agency-managed workspaces and the initial portal request document, for example `kms_key_arn` for `secure-baseline`, network CIDRs for `vpc`, delegated-zone config for `dns`, Lambda packaging/runtime config for `lambda`, and API contract/config for `api` |
 | `working_directory` | no | default: `workspaces/account-bootstrap` | Working directory inside the VCS repo for the bootstrap workspace |
 | `workspace_tags` | no | list of strings, default: `[]` | Additional HCP Terraform tags to apply to the workspace |
 
@@ -304,8 +304,52 @@ The key for each entry is any stable unique identifier for that account entry. T
 - `rds` requires both `secure-baseline` and `vpc` in `services`
 - `rds` requires `service_workspace_variables["rds"].kms_key_arn` (the platform KMS key ARN from the CFN bootstrap)
 - if `rds` is enabled, `service_workspace_variables["vpc"].database_subnets` is also required so the VPC workspace can create a DB subnet group
+- `dns` requires `service_workspace_variables["dns"].dns_config_json.zone_name`
 - if `api` includes any Lambda with `needs_db = true`, `service_workspace_variables["api"].api_config_json` must include `database.iam_username` for an existing DB role that can use IAM auth through RDS Proxy
 - `service_workspace_variables["lambda"].lambda_config_json` and `service_workspace_variables["api"].api_config_json` should be nested JSON objects in `accounts.tf.json`, not quoted JSON strings
+- `service_workspace_variables["api"].api_config_json.gateway.custom_domains` is optional and supports same-account Route53 automation for API Gateway custom domains; each entry requires `domain_name` and either `hosted_zone_id` or a sibling `dns` workspace that provides the delegated hosted zone output
+
+**Delegated DNS + API custom domain example (`service_workspace_variables` excerpts):**
+
+```json
+{
+  "dns": {
+    "dns_config_json": {
+      "zone_name": "dev.example.com"
+    }
+  },
+  "api": {
+    "api_config_json": {
+      "gateway": {
+        "enabled": true,
+        "stage": { "name": "v1" },
+        "custom_domains": {
+          "primary": {
+            "domain_name": "api.dev.example.com",
+            "base_path": ""
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Recommended rollout for delegated DNS:
+- add `dns` to `services` and apply the control plane so `<client>-<env>-dns` is created
+- apply `<client>-<env>-dns` first and copy the `name_servers` output
+- manually add NS delegation for the delegated zone in the parent DNS zone
+- wait for delegation to propagate
+- apply `<client>-<env>-api` so ACM validation and the API Gateway custom domain can complete inside that delegated zone
+
+Parent-zone delegation note:
+- if the parent zone is hosted in GoDaddy DNS, add an `NS` record for the delegated label there
+- example for `api.dev.mindrithm.app`: create the delegated Route53 zone `dev.mindrithm.app`, then add an `NS` record for host `dev` in the parent `mindrithm.app` zone that points to the 4 Route53 `name_servers`
+- if GoDaddy is only the registrar and the parent zone uses different authoritative nameservers, make the NS change in the actual DNS host for the parent zone instead of in GoDaddy
+- do not change the registrar nameservers for the whole domain just to delegate a subdomain
+- do not create manual `A`, `CNAME`, or ACM validation records for `api.dev.mindrithm.app` in the parent zone; once `dev.mindrithm.app` is delegated, Terraform manages those records inside Route53
+
+Manual `hosted_zone_id` still works when you already have a same-account Route53 public hosted zone and do not want to create a sibling `dns` workspace.
 
 ---
 
@@ -432,7 +476,7 @@ For local CLI runs against a non-default org, export `TF_CLOUD_ORGANIZATION=<you
 | Agency project | `<client_id>-<env>-secure-baseline` | No | `acme-dev-secure-baseline` |
 | Project (client self-service) | `<client_id>-<env>-<blueprint>` | Yes | `acme-dev-vpc` |
 
-The bootstrap layer is agency-internal. Clients log into HCP Terraform and see their environment workspace. That portal is a workspace factory: it reads `project_requests_json`, creates child deployers like `acme-dev-vpc` and `acme-dev-rds`, and injects the inherited metadata those deployers need to run.
+The bootstrap layer is agency-internal. Clients log into HCP Terraform and see their environment workspace. That portal is a workspace factory: it reads `project_requests_json`, creates child deployers like `acme-dev-vpc`, `acme-dev-dns`, and `acme-dev-api`, and injects the inherited metadata those deployers need to run.
 
 ---
 
@@ -496,6 +540,9 @@ TF_WORKSPACE=test-client-dev-rds terraform -chdir=workspaces/rds apply
 
 | Root | Example workspace name |
 |---|---|
+| `workspaces/api/` | `test-client-dev-api` |
+| `workspaces/dns/` | `test-client-dev-dns` |
+| `workspaces/lambda/` | `test-client-dev-lambda` |
 | `workspaces/rds/` | `test-client-dev-rds` |
 | `workspaces/vpc/` | `test-client-dev-vpc` |
 | `workspaces/secure-baseline/` | `test-client-dev-secure-baseline` |
