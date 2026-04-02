@@ -69,14 +69,14 @@ Resources:
 
   ##############################################################################
   # TerraformDeployPolicy — least-privilege policy for platform services
-  # Covers: vpc, eks, rds, lambda, api-gateway, route53, acm, s3, kms,
+  # Covers: vpc, eks, rds, lambda, api-gateway, wafv2, route53, acm, s3, kms,
   # iam-access, secure-baseline, account-bootstrap
   ##############################################################################
   TerraformDeployPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
       ManagedPolicyName: TerraformDeployPolicy
-      Description: "Least-privilege policy for HCP Terraform workspaces: VPC, EKS, RDS, Lambda, API Gateway, Route53, ACM, S3, KMS, CloudTrail, Config, GuardDuty, and scoped IAM."
+      Description: "Least-privilege policy for HCP Terraform workspaces: VPC, EKS, RDS, Lambda, API Gateway, WAFv2, Route53, ACM, S3, KMS, CloudTrail, Config, GuardDuty, and scoped IAM."
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -114,6 +114,13 @@ Resources:
             Effect: Allow
             Action:
               - apigateway:*
+            Resource: "*"
+
+          # ── WAFv2 ────────────────────────────────────────────────────────────
+          - Sid: WAFv2
+            Effect: Allow
+            Action:
+              - wafv2:*
             Resource: "*"
 
           # ── Route53 ──────────────────────────────────────────────────────────

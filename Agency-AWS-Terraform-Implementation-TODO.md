@@ -240,6 +240,9 @@ Goal: each AWS service (vpc, rds, eks, etc.) runs in its own project workspace, 
 **Per-service workspace Terraform roots:**
 - [x] create `workspaces/vpc/main.tf` — standalone VPC workspace root using `modules/aws/vpc`
 - [x] create `workspaces/rds/main.tf` — standalone RDS workspace root using `modules/aws/rds-secure`
+- [x] create `workspaces/dns/main.tf` — standalone delegated Route53 hosted-zone workspace root
+- [x] create `workspaces/lambda/main.tf` — standalone Lambda workspace root
+- [x] create `workspaces/api/main.tf` — standalone API Gateway + Lambda workspace root
 - [ ] create `workspaces/eks/main.tf` — standalone EKS workspace root using `modules/aws/eks`
 - [ ] create `workspaces/s3/main.tf` — standalone S3 workspace root using `modules/aws/s3-secure`
 - [x] create `workspaces/secure-baseline/main.tf` — secure baseline workspace root (always provisioned by agency, not client)
@@ -271,6 +274,54 @@ Goal: each AWS service (vpc, rds, eks, etc.) runs in its own project workspace, 
 - [ ] adding a service = client adds one new project workspace pointing at the correct `workspaces/<service>/` root
 - [ ] no tfvars files are generated or committed
 - [ ] `terraform plan` succeeds in a VPC workspace for a dev account using only inherited workspace variables
+
+The API, custom-domain, delegated DNS, and standalone Lambda slices have already landed in the current repo. WAF is the next planned expansion area for the per-service workspace model.
+
+## Phase 6A - WAF Blueprint
+
+Goal: add a separate WAF blueprint that can protect the existing API blueprint first, while keeping the contract extensible for future targets.
+
+### TODO
+
+**Blueprint and module:**
+- [ ] create `modules/aws/waf-web-acl`
+- [ ] create `workspaces/waf`
+- [ ] expose `web_acl_arn`, `web_acl_id`, `web_acl_name`, `web_acl_capacity`, `scope`, `log_group_name`, and `log_group_arn`
+
+**Rule model:**
+- [ ] support managed rule groups
+- [ ] support rate rules
+- [ ] support IP sets and IP allow/block rules
+- [ ] support geo rules
+- [ ] support simple header/path/body match rules
+- [ ] validate unique priorities across all WAF rule families
+
+**Logging:**
+- [ ] create mandatory CloudWatch Logs destination
+- [ ] require the AWS WAF log-group naming convention
+- [ ] redact sensitive headers by default
+
+**Control plane:**
+- [ ] add `waf` to the service catalog
+- [ ] add `service_workspace_ownership.waf`
+- [ ] add `waf_config_json` as the WAF workspace contract
+- [ ] support both client-facing and agency-managed WAF provisioning modes
+
+**API integration:**
+- [ ] add `gateway.waf.enabled` to the API contract
+- [ ] add sibling-workspace output consumption in `api`
+- [ ] create target-owned `aws_wafv2_web_acl_association` in the API path
+- [ ] support advanced self-attach mode only when explicitly configured
+
+**Permissions and docs:**
+- [ ] extend bootstrap IAM for `wafv2:*`
+- [ ] document v1 scope limits and logging behavior
+
+**Tests:**
+- [ ] validate standalone `waf`
+- [ ] validate API attachment path
+- [ ] validate ownership-mode behavior
+- [ ] validate failure cases
 
 ## Phase 7 - Workspace Orchestration
 

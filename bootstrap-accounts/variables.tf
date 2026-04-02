@@ -55,6 +55,7 @@ variable "service_working_dirs" {
     "vpc"             = "workspaces/vpc"
     "rds"             = "workspaces/rds"
     "dns"             = "workspaces/dns"
+    "waf"             = "workspaces/waf"
     "lambda"          = "workspaces/lambda"
     "api"             = "workspaces/api"
   }

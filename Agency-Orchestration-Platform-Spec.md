@@ -65,6 +65,7 @@ Supported orchestration fields:
 
 - `services`
 - `service_workspace_variables`
+- `service_workspace_ownership`
 - `service_artifact_sources`
 - `service_vcs_repo_identifier`
 - `client_admin_team_name`
@@ -81,6 +82,7 @@ Behavior:
 - `service_artifact_sources` is reserved for deployers whose application code is built outside this repo and delivered as versioned artifacts
 - `enable_aws_preflight` defaults to `false` so portal rollout can proceed before AWS OIDC trust is ready
 - `services` plus `service_workspace_variables` are the initial seed only for client-facing blueprints
+- `service_workspace_ownership` can override the default client-facing path for supported blueprints, starting with planned WAF support
 - `secure-baseline` requires `service_workspace_variables.secure-baseline.kms_key_arn`
 
 ### `project_requests_json`
@@ -112,33 +114,85 @@ Shape:
 }
 ```
 
-MVP blueprint catalog:
+Current client-facing blueprint catalog:
 
 - `vpc`
 - `rds`
-
-Phase 2 blueprint additions:
-
+- `dns`
+- `lambda`
 - `api`
+
+Planned next blueprint addition:
+
+- `waf`
+
+### `service_workspace_ownership`
+
+Planned WAF support introduces `service_workspace_ownership.waf`.
+
+Valid values:
+
+- `client`
+- `agency`
+
+Behavior:
+
+- `client` means WAF is provisioned as a client-facing child deployer workspace
+- `agency` means WAF is provisioned as a hidden agency-managed deployer workspace
+- if omitted for WAF, the default should be `client`
+- only one WAF ownership mode is valid per client environment
 
 ### `service_workspace_variables.api`
 
-Phase 2 introduces an `api` deployer contract under `service_workspace_variables.api`.
+The API deployer contract lives under `service_workspace_variables.api.api_config_json`.
 
-Expected fields:
+Current sections:
 
-- `artifact_version`
-- `cors_allowed_origins`
-- `auth_providers`
-- `default_auth_provider`
-- `lambda_memory_mb`
-- `lambda_timeout_seconds`
-- `uploads_bucket_enabled`
+- `gateway`
+- `lambdas`
+- `artifacts`
+- `database`
+- `uploads`
 
-`auth_providers` is a map keyed by provider name. Each value contains:
+Current implemented API behavior:
 
-- `issuer_url`
-- `audiences`
+- public regional API Gateway REST API
+- Lambda authorizer plus route Lambdas
+- custom domain automation
+- delegated DNS integration through a sibling `dns` workspace
+- uploads bucket and RDS Proxy integration
+
+Planned WAF addition to the API contract:
+
+- `service_workspace_variables.api.api_config_json.gateway.waf.enabled`
+
+Planned WAF behavior in the API layer:
+
+- API-first target integration
+- reads WAF outputs from a sibling `waf` workspace
+- target-owned Web ACL association by default
+
+### `service_workspace_variables.waf`
+
+Planned WAF support introduces a separate deployer contract under `service_workspace_variables.waf.waf_config_json`.
+
+WAF v1 defaults:
+
+- separate `waf` blueprint
+- `REGIONAL` only
+- API-first target integration
+- target-owned association by default
+- optional self-attach mode with explicit `resource_arn`
+- mandatory CloudWatch logging
+- curated rule families only
+
+Planned first-class rule families:
+
+- managed rule groups
+- rate rules
+- IP sets plus IP allow/block rules
+- geo rules
+- simple header, path, and body match rules
 
 ### `service_artifact_sources`
 
@@ -198,10 +252,19 @@ MVP roots:
 - [workspaces/secure-baseline](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/secure-baseline) — hidden agency-managed baseline deployer
 - [workspaces/vpc](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/vpc) — real VPC deployer
 - [workspaces/rds](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/rds) — real RDS deployer
+- [workspaces/dns](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/dns) — delegated public Route53 zone deployer for custom-domain environments
+- [workspaces/lambda](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/lambda) — standalone Lambda deployer
+- [workspaces/api](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/api) — API Gateway, Lambda authorizer, Lambda handlers, uploads bucket, and RDS Proxy deployer
 
-Planned Phase 2 root:
+Planned next root:
 
-- `workspaces/api` — API Gateway, Lambda authorizer, Lambda handlers, S3 uploads, and RDS Proxy deployer
+- `workspaces/waf` — WAFv2 Web ACL deployer that owns the ACL, mandatory CloudWatch logging, and optional self-managed association
+
+Planned API/WAF relationship:
+
+- `api` is the first protected target that can consume WAF outputs
+- the default path is target-owned association from the API workspace
+- WAF can also support an advanced self-attach mode when explicitly configured with a `resource_arn`
 
 ## Future Multi-Cloud Naming Model
 
@@ -270,28 +333,46 @@ Example provider mappings:
 - [ ] add policy hooks and approval policy integration points
 - [ ] add drift detection for client-facing child deployer workspaces
 - [ ] add stronger schema validation for `project_requests_json`
-- [ ] add `api` to the portal blueprint catalog
-- [ ] add `api` dependency rules on `secure-baseline`, `vpc`, and `rds`
-- [ ] create `workspaces/api` in this repo
-- [ ] provision a public regional API Gateway REST API
-- [ ] provision one Lambda authorizer with pluggable external OIDC provider config
-- [ ] provision one main CRUD Lambda
-- [ ] provision one presign Lambda for upload and download URL issuance
-- [ ] provision one private uploads bucket with KMS encryption
-- [ ] provision RDS Proxy and target group for Lambda-to-Postgres connectivity
-- [ ] provision Lambda IAM roles, VPC networking, and security groups
-- [ ] provision CloudWatch log groups, API access logs, and basic alarms for 5XX and Lambda errors
-- [ ] extend `service_workspace_variables.api` with `artifact_version`, `cors_allowed_origins`, `auth_providers`, `default_auth_provider`, `lambda_memory_mb`, `lambda_timeout_seconds`, and `uploads_bucket_enabled`
-- [ ] define `auth_providers` as a map keyed by provider name with `issuer_url` and `audiences`
-- [ ] add `service_artifact_sources.api` for S3 artifact delivery from the separate app repo
-- [ ] keep API Terraform in this repo while the Node/TypeScript application code lives in a separate repo
-- [ ] document the app-repo release flow: build Lambda ZIPs, upload to a versioned S3 artifact bucket, deploy from bucket/key/object-version
-- [ ] validate API artifact and auth inputs at the control-plane and portal layers so bad config fails before deploy
-- [ ] document client-admin and operator workflow for bumping `artifact_version` and promoting API releases safely
-- [ ] add API keys, usage plans, and quotas as the next API Gateway capability slice after custom domains
-- [ ] add a `dns` blueprint for delegated public Route53 zones used by API custom domains
-- [ ] allow `api` custom domains to inherit hosted zone IDs from a sibling `dns` workspace when `hosted_zone_id` is omitted
-- [ ] document the manual parent-zone NS delegation and cutover workflow for delegated API environments
+- [x] add `api`, `lambda`, and `dns` to the portal blueprint catalog
+- [x] add `api` dependency rules on `secure-baseline`, `vpc`, and `rds`
+- [x] infer `api` dependency on `dns` when custom domains omit `hosted_zone_id`
+- [x] create `workspaces/api` in this repo
+- [x] create `workspaces/lambda` in this repo
+- [x] create `workspaces/dns` in this repo
+- [x] provision a public regional API Gateway REST API
+- [x] provision one Lambda authorizer with pluggable external OIDC provider config
+- [x] provision one main CRUD Lambda
+- [x] provision one presign Lambda for upload and download URL issuance
+- [x] provision one private uploads bucket with KMS encryption
+- [x] provision RDS Proxy and target group for Lambda-to-Postgres connectivity
+- [x] provision Lambda IAM roles, VPC networking, and security groups
+- [x] provision CloudWatch log groups, API access logs, and basic alarms for 5XX and Lambda errors
+- [x] keep API Terraform in this repo while the application code can be delivered separately as versioned artifacts
+- [x] validate API artifact and auth inputs at the control-plane and portal layers so bad config fails before deploy
+- [x] add a `dns` blueprint for delegated public Route53 zones used by API custom domains
+- [x] allow `api` custom domains to inherit hosted zone IDs from a sibling `dns` workspace when `hosted_zone_id` is omitted
+- [x] document the manual parent-zone NS delegation and cutover workflow for delegated API environments
+
+#### Phase 2A — WAF Blueprint
+
+- [ ] add `service_workspace_ownership.waf` to the onboarding contract with valid values `client` and `agency`
+- [ ] add `service_workspace_variables.waf.waf_config_json`
+- [ ] add `service_workspace_variables.api.api_config_json.gateway.waf.enabled`
+- [ ] add `waf` as a supported blueprint in the control plane
+- [ ] create `modules/aws/waf-web-acl`
+- [ ] create `workspaces/waf`
+- [ ] provision a regional WAFv2 Web ACL with `REGIONAL` scope only in v1
+- [ ] support curated rule families: managed rule groups, rate rules, IP sets plus IP allow/block rules, geo rules, and simple header/path/body match rules
+- [ ] validate unique priorities across all WAF rule families
+- [ ] create mandatory CloudWatch logging for WAF with the AWS-required log-group naming convention
+- [ ] redact sensitive headers by default in WAF logs
+- [ ] create target-owned Web ACL association from the API workspace using sibling WAF outputs
+- [ ] support optional self-attach mode only when explicitly configured with a `resource_arn`
+- [ ] extend bootstrap IAM for `wafv2:*`
+- [ ] document WAF ownership modes, logging behavior, and v1 scope limits
+- [ ] defer CloudFront/global protection, ALB support, raw statement escape hatches, and alternate log sinks like Firehose or S3 to a later slice
+
+- [ ] add API keys, usage plans, and quotas as the next API Gateway capability slice after WAF
 
 ### Phase 3 — Orchestration
 
@@ -329,6 +410,9 @@ Example provider mappings:
 - [ ] an `rds` request fails with a clear validation error unless `vpc` and required inputs already exist
 - [ ] bootstrap workspaces stay hidden from the client team while client-facing applies remain approval-gated
 - [ ] onboarding succeeds through `account-bootstrap`, `secure-baseline`, `vpc`, and `rds`
+- [ ] a `waf` workspace can create a regional Web ACL with mandatory CloudWatch logging
+- [ ] an API workspace with `gateway.waf.enabled = true` can attach a sibling WAF Web ACL successfully
+- [ ] WAF ownership mode can be agency-managed or client-facing without changing the WAF contract
 
 Explicitly not release blockers for MVP:
 
@@ -337,7 +421,11 @@ Explicitly not release blockers for MVP:
 - `s3-secure`
 - `eks`
 - multi-cloud naming and target abstraction
-- custom domain, WAF, async jobs, and background workers for the `api` blueprint
+- CloudFront/global WAF protection
+- ALB WAF protection
+- raw AWS WAF statement escape hatch
+- alternate WAF log sinks such as Firehose or S3
+- async jobs and background workers for the `api` blueprint
 
 ## Assumptions
 

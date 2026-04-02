@@ -52,6 +52,26 @@ resource "terraform_data" "api_config_validation" {
     }
 
     precondition {
+      condition     = !local.waf_enabled || (var.waf_workspace_name != null && trimspace(var.waf_workspace_name) != "")
+      error_message = "gateway.waf.enabled = true requires waf_workspace_name so the API can read a sibling Web ACL."
+    }
+
+    precondition {
+      condition     = !local.waf_enabled || (local.waf_web_acl_arn != null && trimspace(local.waf_web_acl_arn) != "")
+      error_message = "gateway.waf.enabled requires the sibling waf workspace to publish web_acl_arn."
+    }
+
+    precondition {
+      condition     = !local.waf_enabled || upper(trimspace(coalesce(local.waf_scope, ""))) == "REGIONAL"
+      error_message = "gateway.waf.enabled currently supports only sibling WAF Web ACLs with REGIONAL scope."
+    }
+
+    precondition {
+      condition     = !local.waf_enabled || lower(trimspace(coalesce(local.waf_attachment_mode, ""))) == "target"
+      error_message = "gateway.waf.enabled supports only sibling WAF workspaces configured with attachment.mode = \"target\"."
+    }
+
+    precondition {
       condition = alltrue([
         for key, domain in local.resolved_custom_domains :
         trimspace(domain.domain_name) != "" &&

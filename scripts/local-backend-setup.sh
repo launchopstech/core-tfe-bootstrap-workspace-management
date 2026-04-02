@@ -19,6 +19,7 @@ ROOTS=(
   "workspaces/rds"
   "workspaces/vpc"
   "workspaces/dns"
+  "workspaces/waf"
   "workspaces/lambda"
   "workspaces/api"
   "workspaces/secure-baseline"

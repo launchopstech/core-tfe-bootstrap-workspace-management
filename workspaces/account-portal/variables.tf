@@ -25,6 +25,12 @@ variable "project_requests_json" {
   default     = "{\"projects\":{}}"
 }
 
+variable "service_workspace_ownership_json" {
+  description = "JSON document describing blueprint ownership overrides injected by the control plane. Used to distinguish client-facing versus agency-managed service workspaces."
+  type        = string
+  default     = "{}"
+}
+
 variable "client_admin_team_name" {
   description = "Optional HCP Terraform team name that should get write access to the portal and any client-facing child deployer workspaces."
   type        = string

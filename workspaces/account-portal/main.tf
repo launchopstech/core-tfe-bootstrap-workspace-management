@@ -36,6 +36,11 @@ locals {
       default_dependencies = toset([])
       required_inputs      = toset(["dns_config_json"])
     }
+    waf = {
+      working_directory    = "workspaces/waf"
+      default_dependencies = toset([])
+      required_inputs      = toset(["waf_config_json"])
+    }
     lambda = {
       working_directory    = "workspaces/lambda"
       default_dependencies = toset(["secure-baseline"])
@@ -48,8 +53,25 @@ locals {
     }
   }
 
-  project_requests_document = can(jsondecode(var.project_requests_json)) ? jsondecode(var.project_requests_json) : {}
-  requested_projects_raw    = try(local.project_requests_document.projects, {})
+  project_requests_document            = can(jsondecode(var.project_requests_json)) ? jsondecode(var.project_requests_json) : {}
+  requested_projects_raw               = try(local.project_requests_document.projects, {})
+  service_workspace_ownership_document = can(jsondecode(var.service_workspace_ownership_json)) ? jsondecode(var.service_workspace_ownership_json) : {}
+  resolved_service_workspace_ownership = merge(
+    { for project_key in keys(local.project_catalog) : project_key => "client" },
+    {
+      for service_name, owner in local.service_workspace_ownership_document :
+      service_name => lower(trimspace(owner))
+      if contains(keys(local.project_catalog), service_name)
+    },
+  )
+  agency_managed_project_keys = toset([
+    for project_key, owner in local.resolved_service_workspace_ownership : project_key
+    if owner == "agency"
+  ])
+  portal_managed_project_keys = toset([
+    for project_key in keys(local.project_catalog) : project_key
+    if !contains(local.agency_managed_project_keys, project_key)
+  ])
 
   requested_projects = {
     for project_key, project in local.requested_projects_raw : project_key => {
@@ -66,6 +88,15 @@ locals {
     toset(keys(local.requested_projects)),
     toset(keys(local.project_catalog)),
   )
+  invalid_ownership_values = toset([
+    for service_name, owner in local.service_workspace_ownership_document :
+    "${service_name}=${owner}"
+    if contains(keys(local.project_catalog), service_name) && !contains(["client", "agency"], lower(trimspace(owner)))
+  ])
+  invalid_requested_agency_managed_project_keys = toset([
+    for project_key, project in local.requested_projects : project_key
+    if project.enabled && contains(local.agency_managed_project_keys, project_key)
+  ])
 
   # Infer vpc dependency for lambda when lambda_config_json.network.enabled = true
   _lambda_needs_vpc = try(local.requested_projects["lambda"].inputs["lambda_config_json"].network.enabled, false)
@@ -74,6 +105,8 @@ locals {
     for domain_key, domain in local.requested_projects["api"].inputs["api_config_json"].gateway.custom_domains :
     trimspace(try(domain.hosted_zone_id, "")) == ""
   ]), false)
+  # Infer WAF dependency for api when gateway.waf.enabled = true
+  _api_needs_waf = try(local.requested_projects["api"].inputs["api_config_json"].gateway.waf.enabled, false)
 
   enabled_projects = {
     for project_key, project in local.requested_projects : project_key => merge(project, {
@@ -84,6 +117,8 @@ locals {
         project_key == "lambda" && local._lambda_needs_vpc ? toset(["vpc"]) : toset([]),
         # Infer dns dependency for api when custom domains rely on dns workspace outputs
         project_key == "api" && local._api_needs_dns ? toset(["dns"]) : toset([]),
+        # Infer WAF dependency for api when gateway.waf.enabled = true
+        project_key == "api" && local._api_needs_waf ? toset(["waf"]) : toset([]),
       )
     })
     if project.enabled && contains(keys(local.project_catalog), project_key)
@@ -94,7 +129,7 @@ locals {
   project_missing_dependencies = {
     for project_key, project in local.enabled_projects :
     project_key => setsubtract(
-      setintersection(project.dependencies, toset(keys(local.project_catalog))),
+      setintersection(project.dependencies, local.portal_managed_project_keys),
       toset(keys(local.enabled_projects)),
     )
   }
@@ -269,6 +304,11 @@ resource "terraform_data" "project_request_validation" {
     }
 
     precondition {
+      condition     = can(jsondecode(var.service_workspace_ownership_json))
+      error_message = "service_workspace_ownership_json must be valid JSON."
+    }
+
+    precondition {
       condition     = can(local.project_requests_document.projects)
       error_message = "project_requests_json must contain a top-level 'projects' object."
     }
@@ -276,6 +316,16 @@ resource "terraform_data" "project_request_validation" {
     precondition {
       condition     = length(local.invalid_project_keys) == 0
       error_message = "project_requests_json contains unsupported blueprints: ${join(", ", sort(tolist(local.invalid_project_keys)))}. Supported blueprints: ${join(", ", sort(keys(local.project_catalog)))}."
+    }
+
+    precondition {
+      condition     = length(local.invalid_ownership_values) == 0
+      error_message = "service_workspace_ownership_json contains invalid values. Supported values are client or agency. Invalid entries: ${join(", ", sort(tolist(local.invalid_ownership_values)))}."
+    }
+
+    precondition {
+      condition     = length(local.invalid_requested_agency_managed_project_keys) == 0
+      error_message = "project_requests_json enables agency-managed blueprints that are not portal-managed in this account: ${join(", ", sort(tolist(local.invalid_requested_agency_managed_project_keys)))}."
     }
   }
 }

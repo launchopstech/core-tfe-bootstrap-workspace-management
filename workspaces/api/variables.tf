@@ -76,6 +76,12 @@ variable "dns_workspace_name" {
   default     = null
 }
 
+variable "waf_workspace_name" {
+  description = "Name of the WAF workspace. Used when gateway.waf.enabled = true so the API can attach a sibling Web ACL."
+  type        = string
+  default     = null
+}
+
 # ── API configuration (object) ────────────────────────────────────────────────
 variable "api_config_json" {
   description = <<-EOT
@@ -89,6 +95,7 @@ variable "api_config_json" {
         "enabled": true,
         "cors": { "allowed_origins": ["*"] },
         "stage": { "name": "v1" },
+        "waf": { "enabled": true },
         "custom_domains": {
           "primary": { "domain_name": "api.dev.example.com", "base_path": "" },
           "partner": { "domain_name": "partner-api.dev.example.com", "hosted_zone_id": "Z1234567890", "base_path": "api" }
@@ -129,6 +136,10 @@ variable "api_config_json" {
     will request and validate an ACM certificate, create the API Gateway
     custom domain, map it to the configured stage, and create the Route53
     alias record automatically.
+
+    gateway.waf is optional. Set gateway.waf.enabled = true to associate a
+    sibling waf workspace Web ACL to this API stage. v1 supports only the
+    target-owned API attachment path against a REGIONAL Web ACL.
   EOT
   type        = any
 

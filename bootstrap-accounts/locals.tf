@@ -11,8 +11,9 @@ locals {
   # MVP portal support is intentionally narrow: clients can self-service only
   # these blueprints, while agency-managed workspaces stay under control-plane
   # ownership.
-  _client_requestable_services = toset(["vpc", "rds", "dns", "lambda", "api"])
-  _agency_managed_services     = toset(["secure-baseline"])
+  _client_requestable_services    = toset(["vpc", "rds", "dns", "waf", "lambda", "api"])
+  _agency_managed_services        = toset(["secure-baseline"])
+  _ownership_overridable_services = toset(["waf"])
 
   # Static dependency requirements. Lambda's VPC dependency and API's DNS
   # dependency are dynamic — inferred below from workspace config when needed.
@@ -21,6 +22,7 @@ locals {
     "vpc"             = toset(["secure-baseline"])
     "rds"             = toset(["secure-baseline", "vpc"])
     "dns"             = toset([])
+    "waf"             = toset([])
     "lambda"          = toset(["secure-baseline"])
     "api"             = toset(["secure-baseline", "vpc", "rds"])
   }
@@ -32,6 +34,7 @@ locals {
     "vpc"             = toset(["cidr_block", "azs", "private_subnets", "public_subnets"])
     "rds"             = toset([])
     "dns"             = toset(["dns_config_json"])
+    "waf"             = toset(["waf_config_json"])
     "lambda"          = toset(["lambda_config_json"])
     "api"             = toset(["api_config_json"])
   }
@@ -57,6 +60,12 @@ locals {
       for domain_key, domain in account.service_workspace_variables.api.api_config_json.gateway.custom_domains :
       trimspace(try(domain.hosted_zone_id, "")) == ""
     ]), false)
+  }
+
+  # Infer WAF dependency for api when gateway.waf.enabled = true.
+  _api_needs_waf = {
+    for k, account in var.accounts :
+    k => try(account.service_workspace_variables.api.api_config_json.gateway.waf.enabled, false)
   }
 
 }
@@ -85,6 +94,10 @@ locals {
       service_vcs_repo_identifier = try(trimspace(account.service_vcs_repo_identifier), "") != "" ? trimspace(account.service_vcs_repo_identifier) : null
       project_vcs_repo_identifier = try(trimspace(account.service_vcs_repo_identifier), "") != "" ? trimspace(account.service_vcs_repo_identifier) : try(account.vcs_repo_identifier, "bootstrap")
       workspace_tags              = try(tolist(account.workspace_tags), [])
+      service_workspace_ownership = try({
+        for service_name, owner in account.service_workspace_ownership :
+        service_name => lower(trimspace(owner))
+      }, {})
       service_workspace_variables = try({
         for service_name, vars in account.service_workspace_variables :
         service_name => try({
@@ -92,29 +105,6 @@ locals {
           key => value
         }, {})
       }, {})
-      seeded_project_requests = {
-        projects = {
-          for svc in try(tolist(account.services), []) :
-          svc => merge(
-            {
-              enabled = true
-              inputs = lookup(try({
-                for service_name, vars in account.service_workspace_variables :
-                service_name => try({
-                  for key, value in vars :
-                  key => value
-                }, {})
-              }, {}), svc, {})
-            },
-            lookup(local._client_requestable_dependency_overrides, svc, {}),
-            # Infer vpc dependency for lambda when network.enabled = true
-            svc == "lambda" && local._lambda_needs_vpc[k] ? { depends_on = ["vpc"] } : {},
-            # Infer dns dependency for api when custom domains rely on dns workspace outputs
-            svc == "api" && local._api_needs_dns[k] ? { depends_on = ["vpc", "rds", "dns"] } : {},
-          )
-          if contains(local._client_requestable_services, svc)
-        }
-      }
       metadata = {
         client_id         = local._client_ids[k]
         aws_account_id    = account.account_id
@@ -154,11 +144,76 @@ locals {
   # extend or replace these working directories later.
   service_working_dirs = var.service_working_dirs
 
+  account_invalid_service_ownership_keys = {
+    for k, account in local.normalized_accounts :
+    k => setsubtract(
+      toset(keys(account.service_workspace_ownership)),
+      local._ownership_overridable_services,
+    )
+  }
+
+  account_invalid_service_ownership_values = {
+    for k, account in local.normalized_accounts :
+    k => toset([
+      for service_name, owner in account.service_workspace_ownership :
+      "${service_name}=${owner}"
+      if !contains(["client", "agency"], owner)
+    ])
+  }
+
+  account_service_workspace_ownership = {
+    for k, account in local.normalized_accounts :
+    k => merge(
+      { for service_name in local._ownership_overridable_services : service_name => "client" },
+      account.service_workspace_ownership,
+    )
+  }
+
+  account_client_requestable_services = {
+    for k, account in local.normalized_accounts :
+    k => toset([
+      for service_name in local._client_requestable_services : service_name
+      if lookup(local.account_service_workspace_ownership[k], service_name, "client") == "client"
+    ])
+  }
+
+  account_agency_managed_services = {
+    for k, account in local.normalized_accounts :
+    k => setunion(
+      local._agency_managed_services,
+      toset([
+        for service_name in local._ownership_overridable_services : service_name
+        if lookup(local.account_service_workspace_ownership[k], service_name, "client") == "agency"
+      ]),
+    )
+  }
+
+  account_seeded_project_requests = {
+    for k, account in local.normalized_accounts :
+    k => {
+      projects = {
+        for svc in account.services :
+        svc => merge(
+          {
+            enabled = true
+            inputs  = lookup(account.service_workspace_variables, svc, {})
+          },
+          lookup(local._client_requestable_dependency_overrides, svc, {}),
+          svc == "lambda" && local._lambda_needs_vpc[k] ? { depends_on = ["vpc"] } : {},
+          svc == "api" && local._api_needs_dns[k] ? { depends_on = ["vpc", "rds", "dns"] } : {},
+          svc == "api" && local._api_needs_waf[k] ? { depends_on = ["vpc", "rds", "waf"] } : {},
+          svc == "api" && local._api_needs_dns[k] && local._api_needs_waf[k] ? { depends_on = ["vpc", "rds", "dns", "waf"] } : {},
+        )
+        if contains(local.account_client_requestable_services[k], svc)
+      }
+    }
+  }
+
   account_seed_requested_services = {
     for k, account in local.normalized_accounts :
     k => toset([
       for svc in account.services : svc
-      if contains(local._client_requestable_services, svc)
+      if contains(local.account_client_requestable_services[k], svc)
     ])
   }
 
@@ -173,6 +228,8 @@ locals {
           svc == "lambda" && local._lambda_needs_vpc[k] ? toset(["vpc"]) : toset([]),
           # Infer dns dependency for api when custom domains omit hosted_zone_id
           svc == "api" && local._api_needs_dns[k] ? toset(["dns"]) : toset([]),
+          # Infer WAF dependency for api when gateway.waf.enabled = true
+          svc == "api" && local._api_needs_waf[k] ? toset(["waf"]) : toset([]),
         ),
         toset(account.services),
       ))
@@ -205,7 +262,7 @@ locals {
           account     = account
           service     = svc
         }
-        if contains(local._agency_managed_services, svc)
+        if contains(local.account_agency_managed_services[k], svc)
       ]
     ]) : pair.key => pair
   }
@@ -388,7 +445,15 @@ locals {
       "team:${k}:project_requests_json" => {
         workspace_id = tfe_workspace.team[k].id
         key          = "project_requests_json"
-        value        = jsonencode(account.seeded_project_requests)
+        value        = jsonencode(local.account_seeded_project_requests[k])
+      }
+    },
+    {
+      for k, account in local.normalized_accounts :
+      "team:${k}:service_workspace_ownership_json" => {
+        workspace_id = tfe_workspace.team[k].id
+        key          = "service_workspace_ownership_json"
+        value        = jsonencode(local.account_service_workspace_ownership[k])
       }
     },
     {
