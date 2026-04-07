@@ -275,7 +275,7 @@ Goal: each AWS service (vpc, rds, eks, etc.) runs in its own project workspace, 
 - [ ] no tfvars files are generated or committed
 - [ ] `terraform plan` succeeds in a VPC workspace for a dev account using only inherited workspace variables
 
-The API, custom-domain, delegated DNS, and standalone Lambda slices have already landed in the current repo. WAF is the next planned expansion area for the per-service workspace model.
+The API, custom-domain, delegated DNS, standalone Lambda, and WAF slices have already landed in the current repo. `secrets` is the next planned sensitive-config blueprint for the per-service workspace model.
 
 ## Phase 6A - WAF Blueprint
 
@@ -322,6 +322,66 @@ Goal: add a separate WAF blueprint that can protect the existing API blueprint f
 - [ ] validate API attachment path
 - [ ] validate ownership-mode behavior
 - [ ] validate failure cases
+
+## Phase 6B - Secrets Blueprint
+
+Goal: add a separate Secrets Manager blueprint for same-account runtime secret containers, while keeping secret values outside Terraform state, wiring first-class sibling consumption into `api` and standalone `lambda`, and covering GitHub Actions AWS access setup in the same phase.
+
+### TODO
+
+**Blueprint and module:**
+- [ ] create `modules/aws/secrets-manager`
+- [ ] create `workspaces/secrets`
+- [ ] expose `secret_arns` and `secret_names`
+- [ ] keep RDS-generated master-user secrets owned by `rds`
+
+**Workspace contract:**
+- [ ] add `service_workspace_variables.secrets.secrets_config_json`
+- [ ] model `secrets_config_json` as logical secret keys mapped to metadata such as `name_suffix`, `description`, `recovery_window_in_days`, and tags
+- [ ] keep v1 metadata-only: Terraform creates secret containers but does not manage secret values
+- [ ] define generic `secret_refs` for consumers
+- [ ] add a `github_actions` section for repository-specific AWS access setup
+
+**Control plane:**
+- [ ] add `secrets` to the service catalog
+- [ ] add `secrets` to the working-directory map
+- [ ] add `service_workspace_ownership.secrets`
+- [ ] default omitted `service_workspace_ownership.secrets` to `agency`
+- [ ] support both agency-managed and client-facing `secrets` provisioning modes
+- [ ] inject `secrets_workspace_name` into dependent workspaces
+
+**Consumer integration:**
+- [ ] add sibling-output consumption in `workspaces/api`
+- [ ] add sibling-output consumption in `workspaces/lambda`
+- [ ] resolve `secret_refs` to sibling `secret_arns`
+- [ ] inject resolved secret ARNs into declared environment-variable names
+- [ ] grant `secretsmanager:GetSecretValue` only for referenced secrets
+- [ ] validate unknown secret keys and missing sibling outputs clearly
+
+**Security and defaults:**
+- [ ] use the secure-baseline KMS key as the default encryption key
+- [ ] document that secret values are managed outside Terraform
+- [ ] document that Terraform-managed secret values are out of scope for v1
+- [ ] keep SSM Parameter Store, cross-account sharing, rotation Lambda automation, and GitHub secret-sync automation out of v1
+
+**GitHub Actions setup:**
+- [ ] support GitHub Actions AWS access in the same phase as `secrets`
+- [ ] support `oidc_role` mode for repository-specific AWS access
+- [ ] support `static_keys` mode for repository-specific fallback access
+- [ ] prefer OIDC over static keys in the documented design
+- [ ] provision repo-scoped OIDC trust and assumable role outputs for the preferred path
+- [ ] model named secret containers for `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` fallback without storing values in Terraform state
+- [ ] document that repository-side secret population may remain manual or later-automated in v1
+
+**Tests:**
+- [ ] validate standalone `secrets` workspace creation without secret values
+- [ ] validate omitted ownership defaults to agency-managed `secrets`
+- [ ] validate explicit `client` ownership creates visible `<client>-<env>-secrets`
+- [ ] validate `api` sibling secret consumption through `secret_refs`
+- [ ] validate standalone `lambda` sibling secret consumption through `secret_refs`
+- [ ] validate GitHub Actions OIDC-role setup outputs
+- [ ] validate GitHub Actions static-key fallback metadata without Terraform-managed secret values
+- [ ] validate bad secret references fail clearly
 
 ## Phase 7 - Workspace Orchestration
 

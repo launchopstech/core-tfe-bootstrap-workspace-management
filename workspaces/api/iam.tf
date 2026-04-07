@@ -12,11 +12,20 @@ data "aws_iam_policy_document" "lambda" {
   }
 
   dynamic "statement" {
-    for_each = try(each.value.needs_db, false) || try(each.value.needs_uploads, false) ? [1] : []
+    for_each = try(each.value.needs_db, false) || try(each.value.needs_uploads, false) || length(keys(local.lambda_secret_refs[each.key])) > 0 ? [1] : []
     content {
       sid       = "KMSDecrypt"
       actions   = try(each.value.needs_uploads, false) ? ["kms:Decrypt", "kms:GenerateDataKey"] : ["kms:Decrypt"]
       resources = [local.kms_key_arn]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = length(keys(local.lambda_secret_env_vars[each.key])) > 0 ? [1] : []
+    content {
+      sid       = "SecretsManagerRead"
+      actions   = ["secretsmanager:GetSecretValue"]
+      resources = values(local.lambda_secret_env_vars[each.key])
     }
   }
 

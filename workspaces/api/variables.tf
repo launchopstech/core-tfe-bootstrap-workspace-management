@@ -82,6 +82,12 @@ variable "waf_workspace_name" {
   default     = null
 }
 
+variable "secrets_workspace_name" {
+  description = "Name of the Secrets workspace. Used when any API lambda declares secret_refs so this workspace can resolve sibling secret ARNs."
+  type        = string
+  default     = null
+}
+
 # ── API configuration (object) ────────────────────────────────────────────────
 variable "api_config_json" {
   description = <<-EOT
@@ -113,7 +119,7 @@ variable "api_config_json" {
         }
       },
       "lambdas": {
-        "crud":       { "function_name_suffix": "api-crud",       "memory_mb": 256, "timeout_seconds": 30, "needs_vpc": true,  "needs_db": true,  "needs_uploads": false },
+        "crud":       { "function_name_suffix": "api-crud",       "memory_mb": 256, "timeout_seconds": 30, "needs_vpc": true,  "needs_db": true,  "needs_uploads": false, "secret_refs": { "STRIPE_SECRET_ARN": "stripe_api_key" } },
         "presign":    { "function_name_suffix": "api-presign",    "memory_mb": 128, "timeout_seconds": 10, "needs_vpc": false, "needs_db": false, "needs_uploads": true  },
         "authorizer": { "function_name_suffix": "api-authorizer", "memory_mb": 128, "timeout_seconds": 10, "needs_vpc": false, "needs_db": false, "needs_uploads": false }
       },
@@ -140,6 +146,11 @@ variable "api_config_json" {
     gateway.waf is optional. Set gateway.waf.enabled = true to associate a
     sibling waf workspace Web ACL to this API stage. v1 supports only the
     target-owned API attachment path against a REGIONAL Web ACL.
+
+    lambdas.<key>.secret_refs is optional. It maps Lambda environment-variable
+    names to logical secret keys published by a sibling secrets workspace.
+    This workspace injects the resolved secret ARN into the Lambda environment
+    and grants secretsmanager:GetSecretValue only for the referenced secrets.
   EOT
   type        = any
 

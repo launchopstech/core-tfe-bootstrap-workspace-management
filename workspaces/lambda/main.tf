@@ -15,8 +15,8 @@ module "lambda" {
   vpc_id                        = local.vpc_id
   subnet_ids                    = local.subnet_ids
   kms_key_arn                   = local.kms_key_arn
-  attach_additional_policy_json = trimspace(local.additional_policy_json) != ""
-  additional_policy_json        = local.additional_policy_json
+  attach_additional_policy_json = length(local.merged_additional_policy_documents) > 0
+  additional_policy_json        = try(data.aws_iam_policy_document.lambda_additional[0].json, "")
   tags                          = var.tags
 
   depends_on = [aws_s3_object.seed_package]

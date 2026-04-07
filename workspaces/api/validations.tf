@@ -72,6 +72,30 @@ resource "terraform_data" "api_config_validation" {
     }
 
     precondition {
+      condition     = !local.has_lambda_secret_refs || (var.secrets_workspace_name != null && trimspace(var.secrets_workspace_name) != "")
+      error_message = "API lambdas that declare secret_refs require secrets_workspace_name so secret ARNs can be read from a sibling secrets workspace."
+    }
+
+    precondition {
+      condition = alltrue([
+        for lambda_key, secret_refs in local.lambda_secret_refs :
+        alltrue([
+          for env_name, secret_key in secret_refs :
+          can(regex("^[A-Za-z_][A-Za-z0-9_]*$", env_name))
+        ])
+      ])
+      error_message = "Each api_config_json.lambdas.<key>.secret_refs key must be a valid environment-variable name."
+    }
+
+    precondition {
+      condition = alltrue([
+        for lambda_key, missing_keys in local.lambda_missing_secret_keys :
+        length(missing_keys) == 0
+      ])
+      error_message = "Each api_config_json.lambdas.<key>.secret_refs value must reference a secret key published by the sibling secrets workspace."
+    }
+
+    precondition {
       condition = alltrue([
         for key, domain in local.resolved_custom_domains :
         trimspace(domain.domain_name) != "" &&

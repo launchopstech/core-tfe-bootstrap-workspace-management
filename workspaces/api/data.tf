@@ -27,5 +27,11 @@ data "tfe_outputs" "waf" {
   workspace    = var.waf_workspace_name
 }
 
+data "tfe_outputs" "secrets" {
+  count        = local.use_secrets_workspace ? 1 : 0
+  organization = var.hcp_terraform_organization
+  workspace    = var.secrets_workspace_name
+}
+
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}

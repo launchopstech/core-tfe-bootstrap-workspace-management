@@ -64,6 +64,12 @@ variable "vpc_workspace_name" {
   default     = ""
 }
 
+variable "secrets_workspace_name" {
+  description = "Name of the Secrets workspace. Required when lambda_config_json.secret_refs is non-empty."
+  type        = string
+  default     = ""
+}
+
 # ── Lambda configuration (object) ─────────────────────────────────────────────
 variable "lambda_config_json" {
   description = <<-EOT
@@ -75,6 +81,7 @@ variable "lambda_config_json" {
       "runtime":     { "handler": "bootstrap", "runtime": "provided.al2023" },
       "performance": { "memory_mb": 256, "timeout_seconds": 30 },
       "environment": { "KEY": "value" },
+      "secret_refs": { "STRIPE_SECRET_ARN": "stripe_api_key" },
       "network":     { "enabled": false },
       "logging":     { "retention_days": 90 },
       "iam":         { "additional_policy_json": "" }
@@ -86,6 +93,11 @@ variable "lambda_config_json" {
     packages a seed ZIP from workspaces/seed_code and uploads it to
     the final artifact key so first-time applies can succeed before the real
     pipeline overwrites that same key.
+
+    secret_refs is optional. It maps Lambda environment-variable names to
+    logical secret keys published by a sibling secrets workspace. This
+    workspace injects the resolved secret ARN into the Lambda environment
+    and grants secretsmanager:GetSecretValue only for the referenced secrets.
   EOT
   type        = any
 

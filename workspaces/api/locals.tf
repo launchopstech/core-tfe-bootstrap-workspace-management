@@ -17,6 +17,13 @@ locals {
   create_artifacts_bucket         = try(local.artifacts.create_bucket, false)
   upload_seed_artifacts           = try(local.artifacts.upload_seed_code, false)
   custom_domains                  = try(local.gw.custom_domains, {})
+  lambda_secret_refs = {
+    for lambda_key, lambda_cfg in local.lambdas : lambda_key => {
+      for env_name, secret_key in try(lambda_cfg.secret_refs, {}) :
+      trimspace(env_name) => trimspace(secret_key)
+      if trimspace(env_name) != "" && trimspace(secret_key) != ""
+    }
+  }
 
   default_artifacts_bucket_name = local.configured_artifacts_bucket != "" ? local.configured_artifacts_bucket : (
     var.aws_account_id != null && trimspace(var.aws_account_id) != "" ? "${local.name_prefix}-${var.aws_account_id}-api-code" : "${local.name_prefix}-api-code"
@@ -40,6 +47,10 @@ locals {
   ]), false)
   use_dns_workspace = local.custom_domains_need_dns && var.dns_workspace_name != null && trimspace(var.dns_workspace_name) != ""
   use_waf_workspace = local.waf_enabled && var.waf_workspace_name != null && trimspace(var.waf_workspace_name) != ""
+  has_lambda_secret_refs = try(anytrue([
+    for lambda_key, secret_refs in local.lambda_secret_refs : length(keys(secret_refs)) > 0
+  ]), false)
+  use_secrets_workspace = local.has_lambda_secret_refs && var.secrets_workspace_name != null && trimspace(var.secrets_workspace_name) != ""
 
   # needs_db implies VPC attachment — DB Lambdas always go through RDS Proxy in VPC
   needs_vpc = local.has_lambdas && anytrue([for k, v in local.lambdas : try(v.needs_vpc, false) || try(v.needs_db, false)]) || local.proxy_enabled
@@ -72,6 +83,7 @@ locals {
   waf_web_acl_arn     = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.web_acl_arn), null) : null
   waf_scope           = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.scope), null) : null
   waf_attachment_mode = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.attachment_mode), null) : null
+  secret_arns_by_key  = local.use_secrets_workspace ? try(nonsensitive(data.tfe_outputs.secrets[0].values.secret_arns), {}) : {}
 }
 
 # ── Custom domain resolution ───────────────────────────────────────────────────
@@ -87,11 +99,31 @@ locals {
   }
 }
 
+# ── Secrets resolution ────────────────────────────────────────────────────────
+locals {
+  lambda_missing_secret_keys = {
+    for lambda_key, secret_refs in local.lambda_secret_refs :
+    lambda_key => setsubtract(
+      toset(values(secret_refs)),
+      toset(keys(local.secret_arns_by_key)),
+    )
+  }
+
+  lambda_secret_env_vars = {
+    for lambda_key, secret_refs in local.lambda_secret_refs : lambda_key => {
+      for env_name, secret_key in secret_refs :
+      env_name => local.secret_arns_by_key[secret_key]
+      if contains(keys(local.secret_arns_by_key), secret_key)
+    }
+  }
+}
+
 # ── Per-Lambda environment variables ──────────────────────────────────────────
 locals {
   lambda_env_vars = {
     for k, v in local.lambdas : k => merge(
       try(v.environment, {}),
+      try(local.lambda_secret_env_vars[k], {}),
       # DB env vars — IAM auth, no secret exposure
       try(v.needs_db, false) ? {
         DB_PROXY_ENDPOINT = module.rds_proxy[0].proxy_endpoint
@@ -116,7 +148,7 @@ locals {
 locals {
   lambdas_with_policies = {
     for k, v in local.lambdas : k => v
-    if try(v.needs_db, false) || try(v.needs_uploads, false)
+    if try(v.needs_db, false) || try(v.needs_uploads, false) || length(keys(local.lambda_secret_refs[k])) > 0
   }
 
   db_lambda_keys = [for k, v in local.lambdas : k if try(v.needs_db, false)]
