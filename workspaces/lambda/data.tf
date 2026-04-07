@@ -9,3 +9,10 @@ data "tfe_outputs" "vpc" {
   organization = var.hcp_terraform_organization
   workspace    = var.vpc_workspace_name
 }
+
+data "tfe_outputs" "secrets" {
+  count = local.use_secrets_workspace ? 1 : 0
+
+  organization = var.hcp_terraform_organization
+  workspace    = var.secrets_workspace_name
+}
