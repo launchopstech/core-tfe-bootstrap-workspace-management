@@ -47,32 +47,32 @@ resource "terraform_data" "api_config_validation" {
     }
 
     precondition {
-      condition     = !local.custom_domains_need_dns || (var.dns_workspace_name != null && trimspace(var.dns_workspace_name) != "")
+      condition     = !local.custom_domains_need_dns || local.normalized_dns_workspace_name != ""
       error_message = "gateway.custom_domains entries without hosted_zone_id require dns_workspace_name so the hosted zone can be read from a sibling dns workspace."
     }
 
     precondition {
-      condition     = !local.waf_enabled || (var.waf_workspace_name != null && trimspace(var.waf_workspace_name) != "")
+      condition     = !local.waf_enabled || local.normalized_waf_workspace_name != ""
       error_message = "gateway.waf.enabled = true requires waf_workspace_name so the API can read a sibling Web ACL."
     }
 
     precondition {
-      condition     = !local.waf_enabled || (local.waf_web_acl_arn != null && trimspace(local.waf_web_acl_arn) != "")
+      condition     = !local.waf_enabled || try(trimspace(local.waf_web_acl_arn), "") != ""
       error_message = "gateway.waf.enabled requires the sibling waf workspace to publish web_acl_arn."
     }
 
     precondition {
-      condition     = !local.waf_enabled || upper(trimspace(coalesce(local.waf_scope, ""))) == "REGIONAL"
+      condition     = !local.waf_enabled || upper(try(trimspace(local.waf_scope), "")) == "REGIONAL"
       error_message = "gateway.waf.enabled currently supports only sibling WAF Web ACLs with REGIONAL scope."
     }
 
     precondition {
-      condition     = !local.waf_enabled || lower(trimspace(coalesce(local.waf_attachment_mode, ""))) == "target"
+      condition     = !local.waf_enabled || lower(try(trimspace(local.waf_attachment_mode), "")) == "target"
       error_message = "gateway.waf.enabled supports only sibling WAF workspaces configured with attachment.mode = \"target\"."
     }
 
     precondition {
-      condition     = !local.has_lambda_secret_refs || (var.secrets_workspace_name != null && trimspace(var.secrets_workspace_name) != "")
+      condition     = !local.has_lambda_secret_refs || local.normalized_secrets_workspace_name != ""
       error_message = "API lambdas that declare secret_refs require secrets_workspace_name so secret ARNs can be read from a sibling secrets workspace."
     }
 
