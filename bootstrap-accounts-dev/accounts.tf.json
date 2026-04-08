@@ -241,7 +241,7 @@
                 "bucket": "test-client-dev-api-code",
                 "create_bucket": true,
                 "key_prefix": "api",
-                "upload_seed_code": true,
+                "upload_seed_code": false,
                 "version": "v0.1.0"
               },
               "database": {
