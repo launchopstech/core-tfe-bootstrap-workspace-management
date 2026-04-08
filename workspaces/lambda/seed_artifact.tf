@@ -10,4 +10,8 @@ resource "aws_s3_object" "seed_package" {
   metadata = {
     seed_zip_hash = filemd5("${path.module}/../seed_code/seed_handler.zip")
   }
+
+  lifecycle {
+    ignore_changes = [key]
+  }
 }
