@@ -20,7 +20,11 @@ locals {
         mode                         = lower(trimspace(try(repo.aws_access.mode, "oidc_role")))
         role_name_suffix             = trimspace(try(repo.aws_access.role_name_suffix, ""))
         managed_policy_arns          = distinct([for arn in try(repo.aws_access.managed_policy_arns, []) : trimspace(arn) if trimspace(arn) != ""])
-        inline_policy_json           = trimspace(try(repo.aws_access.inline_policy_json, ""))
+        inline_policy_json = (
+          try(repo.aws_access.inline_policy_json, null) == null ? "" :
+          can(trimspace(repo.aws_access.inline_policy_json)) ? trimspace(repo.aws_access.inline_policy_json) :
+          jsonencode(repo.aws_access.inline_policy_json)
+        )
         subject_claims               = distinct([for claim in try(repo.aws_access.subject_claims, []) : trimspace(claim) if trimspace(claim) != ""])
         access_key_id_secret_key     = trimspace(try(repo.aws_access.access_key_id_secret_key, ""))
         secret_access_key_secret_key = trimspace(try(repo.aws_access.secret_access_key_secret_key, ""))
