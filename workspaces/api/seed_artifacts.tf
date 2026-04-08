@@ -17,4 +17,11 @@ resource "aws_s3_object" "seed_artifacts" {
   metadata = {
     seed_zip_hash = filemd5(each.value)
   }
+
+  # Seed artifacts are only for first-time bootstrap. After a real pipeline
+  # starts publishing versioned ZIPs, Terraform should stop rewriting the
+  # versioned object key or it will overwrite freshly uploaded artifacts.
+  lifecycle {
+    ignore_changes = [key]
+  }
 }
