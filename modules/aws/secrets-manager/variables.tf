@@ -1,5 +1,5 @@
 variable "name_prefix" {
-  description = "Prefix used when constructing secret names and GitHub Actions role names."
+  description = "Prefix used when constructing secret names."
   type        = string
 }
 
@@ -27,27 +27,6 @@ variable "secret_definitions" {
     tags                    = optional(map(string), {})
   }))
   default = {}
-}
-
-variable "github_actions" {
-  description = "GitHub Actions AWS access configuration."
-  type = object({
-    oidc_provider_arn = optional(string, null)
-    repositories = optional(map(object({
-      aws_access = object({
-        mode                         = string
-        role_name_suffix             = optional(string, null)
-        managed_policy_arns          = optional(list(string), [])
-        inline_policy_json           = optional(string, "")
-        subject_claims               = optional(list(string), [])
-        access_key_id_secret_key     = optional(string, null)
-        secret_access_key_secret_key = optional(string, null)
-      })
-    })), {})
-  })
-  default = {
-    repositories = {}
-  }
 }
 
 variable "tags" {

@@ -120,6 +120,7 @@ Current client-facing blueprint catalog:
 - `rds`
 - `dns`
 - `waf`
+- `iam`
 - `lambda`
 - `api`
 
@@ -132,6 +133,7 @@ Planned next blueprint addition:
 Supported ownership overrides:
 
 - `service_workspace_ownership.waf`
+- `service_workspace_ownership.iam`
 - planned `service_workspace_ownership.secrets`
 
 Valid values:
@@ -145,6 +147,10 @@ Behavior:
 - `agency` means WAF is provisioned as a hidden agency-managed deployer workspace
 - if omitted for WAF, the default should be `client`
 - only one WAF ownership mode is valid per client environment
+- `client` means IAM is provisioned as a client-facing child deployer workspace
+- `agency` means IAM is provisioned as a hidden agency-managed deployer workspace
+- if omitted for IAM, the default should be `agency`
+- only one IAM ownership mode is valid per client environment
 - `client` means planned `secrets` would be provisioned as a client-facing child deployer workspace
 - `agency` means planned `secrets` would be provisioned as a hidden agency-managed deployer workspace
 - if omitted for planned `secrets`, the default should be `agency`
@@ -203,6 +209,47 @@ Planned first-class rule families:
 - geo rules
 - simple header, path, and body match rules
 
+### `service_workspace_variables.iam`
+
+Current IAM support introduces a separate deployer contract under `service_workspace_variables.iam.iam_config_json`.
+
+Current v1 defaults:
+
+- separate `iam` blueprint
+- generic OIDC provider plus federated-role contract
+- default ownership is `agency`
+- outputs should remain generic: `oidc_provider_arn`, `oidc_role_arns`, `access_bindings`
+- GitHub Actions is a common first use case, not the defining shape of the blueprint
+
+Current `iam_config_json` shape:
+
+```json
+{
+  "oidc": {
+    "issuer_url": "https://token.actions.githubusercontent.com",
+    "client_id_list": ["sts.amazonaws.com"],
+    "thumbprint_list": ["6938fd4d98bab03faadb97b34396831e3780aea1"],
+    "roles": {
+      "artifact_publisher": {
+        "role_name_suffix": "artifact-publisher",
+        "subject_claims": ["repo:org/repo:*"],
+        "inline_policy_json": {
+          "Version": "2012-10-17",
+          "Statement": []
+        }
+      }
+    }
+  }
+}
+```
+
+Agency extensibility note:
+
+- prefer generic access contracts over tool-branded schemas
+- GitHub Actions should be treated as one consumer of the IAM blueprint, not the whole blueprint
+- expected future consumers include GitLab CI, Terraform Cloud run roles, vendor integrations, and cross-account automation roles
+- future widening should preserve the top-level `iam_config_json` contract instead of repeatedly renaming around individual tools
+
 ### `service_workspace_variables.secrets`
 
 Planned `secrets` support introduces a separate deployer contract under `service_workspace_variables.secrets.secrets_config_json`.
@@ -215,9 +262,8 @@ Planned v1 defaults:
 - default ownership is `agency`
 - generic cross-service `secret_refs` contract
 - first-class sibling consumer integration for `api` and standalone `lambda`
-- first-class GitHub Actions AWS access setup in the same phase
-- support both GitHub OIDC role access and static AWS key fallback, with OIDC preferred
 - secure-baseline KMS key is the intended default encryption key
+- identity access concerns such as OIDC providers and federated IAM roles belong in the separate `iam` blueprint
 - RDS-generated master-user secrets remain owned by `rds`
 
 Planned `secrets_config_json` shape:
@@ -245,27 +291,6 @@ Planned consumer-side `secret_refs` shape:
 }
 ```
 
-Planned GitHub Actions setup shape:
-
-```json
-"github_actions": {
-  "repositories": {
-    "org/app-repo": {
-      "aws_access": {
-        "mode": "oidc_role"
-      }
-    },
-    "org/legacy-repo": {
-      "aws_access": {
-        "mode": "static_keys",
-        "access_key_id_secret_key": "github_actions_access_key_id",
-        "secret_access_key_secret_key": "github_actions_secret_access_key"
-      }
-    }
-  }
-}
-```
-
 Planned behavior:
 
 - the `secrets` workspace exposes `secret_arns` and `secret_names`
@@ -273,11 +298,7 @@ Planned behavior:
 - `api` and `lambda` resolve `secret_refs` to secret ARNs and inject those ARNs into the declared environment-variable names
 - consumer IAM should grant `secretsmanager:GetSecretValue` only for referenced secrets
 - unknown secret references should fail validation before deploy
-- the first `secrets` slice also standardizes GitHub Actions AWS access setup
-- `github_actions.repositories[*].aws_access.mode` supports `oidc_role` and `static_keys`
-- `oidc_role` is the preferred path and should provision repo-scoped AWS trust plus a role ARN output that GitHub Actions can assume
-- `static_keys` is the fallback path and should model named secret containers for `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, while still keeping secret values outside Terraform state
-- GitHub secret synchronization through the GitHub API or provider is not required in v1; repo-side secret population may remain a manual or later-automation step
+- CI/CD and automation identity access should be modeled through the sibling `iam` workspace rather than through `secrets`
 
 ### `service_artifact_sources`
 
@@ -339,6 +360,7 @@ MVP roots:
 - [workspaces/rds](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/rds) — real RDS deployer
 - [workspaces/dns](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/dns) — delegated public Route53 zone deployer for custom-domain environments
 - [workspaces/waf](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/waf) — WAFv2 Web ACL deployer that owns the ACL, mandatory CloudWatch logging, and optional self-managed association
+- [workspaces/iam](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/iam) — generic OIDC provider and federated IAM role deployer for CI/CD and automation access patterns
 - [workspaces/lambda](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/lambda) — standalone Lambda deployer
 - [workspaces/api](/Users/bomatra/Developement/github/cloud-infra/core-tfe-bootstrap-workspace-management/workspaces/api) — API Gateway, Lambda authorizer, Lambda handlers, uploads bucket, and RDS Proxy deployer
 
@@ -357,9 +379,14 @@ Planned secrets relationship:
 - `api` and standalone `lambda` are the first sibling consumers of `secrets`
 - `secret_refs` map declared environment-variable names to logical secret keys
 - the `secrets` blueprint owns secret containers, while applications fetch secret values at runtime
-- the same `secrets` phase also covers GitHub Actions AWS access setup for CI/CD repositories
-- OIDC role access is preferred for GitHub Actions, with static AWS key fallback only where needed
+- CI/CD and automation access roles belong in the sibling `iam` workspace
 - RDS-managed master-user secrets stay in the `rds` ownership path and are not migrated into `secrets`
+
+Current IAM relationship:
+
+- `iam` owns OIDC providers and federated IAM roles
+- GitHub Actions is the first concrete adopter, but the contract should stay broad enough for additional agency use cases
+- future access consumers may include other CI systems, vendor integrations, Terraform run identities, and cross-account automation roles
 
 ## Future Multi-Cloud Naming Model
 

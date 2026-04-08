@@ -41,6 +41,11 @@ locals {
       default_dependencies = toset([])
       required_inputs      = toset(["waf_config_json"])
     }
+    iam = {
+      working_directory    = "workspaces/iam"
+      default_dependencies = toset([])
+      required_inputs      = toset(["iam_config_json"])
+    }
     secrets = {
       working_directory    = "workspaces/secrets"
       default_dependencies = toset(["secure-baseline"])
@@ -64,6 +69,7 @@ locals {
   resolved_service_workspace_ownership = merge(
     { for project_key in keys(local.project_catalog) : project_key => "client" },
     {
+      iam     = "agency"
       secrets = "agency"
     },
     {

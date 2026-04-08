@@ -56,6 +56,7 @@ variable "service_working_dirs" {
     "rds"             = "workspaces/rds"
     "dns"             = "workspaces/dns"
     "waf"             = "workspaces/waf"
+    "iam"             = "workspaces/iam"
     "secrets"         = "workspaces/secrets"
     "lambda"          = "workspaces/lambda"
     "api"             = "workspaces/api"

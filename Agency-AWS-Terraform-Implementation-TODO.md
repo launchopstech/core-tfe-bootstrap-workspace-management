@@ -202,7 +202,7 @@ Goal: provide reusable, secure building blocks for AWS services.
 - [ ] create `modules/aws/eks` (wrap `terraform-aws-modules/terraform-aws-eks`)
 - [x] create `modules/aws/rds-secure` (wrap `terraform-aws-modules/terraform-aws-rds`)
 - [x] create `modules/aws/s3-secure`
-- [ ] create `modules/aws/iam-access`
+- [x] create `modules/aws/iam-access`
 - [ ] create `modules/aws/cloudwatch-observability`
 - [ ] create `modules/aws/backup-baseline`
 - [ ] decide which modules wrap upstream community modules vs built from scratch
@@ -275,7 +275,7 @@ Goal: each AWS service (vpc, rds, eks, etc.) runs in its own project workspace, 
 - [ ] no tfvars files are generated or committed
 - [ ] `terraform plan` succeeds in a VPC workspace for a dev account using only inherited workspace variables
 
-The API, custom-domain, delegated DNS, standalone Lambda, and WAF slices have already landed in the current repo. `secrets` is the next planned sensitive-config blueprint for the per-service workspace model.
+The API, custom-domain, delegated DNS, standalone Lambda, WAF, and IAM access slices have already landed in the current repo. `secrets` remains the next runtime sensitive-config blueprint, while IAM should be widened over time for broader agency access patterns.
 
 ## Phase 6A - WAF Blueprint
 
@@ -325,7 +325,7 @@ Goal: add a separate WAF blueprint that can protect the existing API blueprint f
 
 ## Phase 6B - Secrets Blueprint
 
-Goal: add a separate Secrets Manager blueprint for same-account runtime secret containers, while keeping secret values outside Terraform state, wiring first-class sibling consumption into `api` and standalone `lambda`, and covering GitHub Actions AWS access setup in the same phase.
+Goal: add a separate Secrets Manager blueprint for same-account runtime secret containers, while keeping secret values outside Terraform state and wiring first-class sibling consumption into `api` and standalone `lambda`.
 
 ### TODO
 
@@ -340,7 +340,6 @@ Goal: add a separate Secrets Manager blueprint for same-account runtime secret c
 - [ ] model `secrets_config_json` as logical secret keys mapped to metadata such as `name_suffix`, `description`, `recovery_window_in_days`, and tags
 - [ ] keep v1 metadata-only: Terraform creates secret containers but does not manage secret values
 - [ ] define generic `secret_refs` for consumers
-- [ ] add a `github_actions` section for repository-specific AWS access setup
 
 **Control plane:**
 - [ ] add `secrets` to the service catalog
@@ -364,24 +363,40 @@ Goal: add a separate Secrets Manager blueprint for same-account runtime secret c
 - [ ] document that Terraform-managed secret values are out of scope for v1
 - [ ] keep SSM Parameter Store, cross-account sharing, rotation Lambda automation, and GitHub secret-sync automation out of v1
 
-**GitHub Actions setup:**
-- [ ] support GitHub Actions AWS access in the same phase as `secrets`
-- [ ] support `oidc_role` mode for repository-specific AWS access
-- [ ] support `static_keys` mode for repository-specific fallback access
-- [ ] prefer OIDC over static keys in the documented design
-- [ ] provision repo-scoped OIDC trust and assumable role outputs for the preferred path
-- [ ] model named secret containers for `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` fallback without storing values in Terraform state
-- [ ] document that repository-side secret population may remain manual or later-automated in v1
-
 **Tests:**
 - [ ] validate standalone `secrets` workspace creation without secret values
 - [ ] validate omitted ownership defaults to agency-managed `secrets`
 - [ ] validate explicit `client` ownership creates visible `<client>-<env>-secrets`
 - [ ] validate `api` sibling secret consumption through `secret_refs`
 - [ ] validate standalone `lambda` sibling secret consumption through `secret_refs`
-- [ ] validate GitHub Actions OIDC-role setup outputs
-- [ ] validate GitHub Actions static-key fallback metadata without Terraform-managed secret values
 - [ ] validate bad secret references fail clearly
+
+## Phase 6C - IAM Blueprint Generalization
+
+Goal: keep the new IAM workspace generic enough for wider agency use cases instead of letting one CI/CD integration define the whole contract.
+
+### TODO
+
+**Current foundation:**
+- [x] create `modules/aws/iam-access`
+- [x] create `workspaces/iam`
+- [x] add `iam` to the control-plane service catalog and working-directory map
+- [x] support `service_workspace_ownership.iam`
+- [x] expose generic outputs such as `oidc_provider_arn`, `oidc_role_arns`, and `access_bindings`
+
+**Contract widening:**
+- [ ] keep `iam_config_json` generic and avoid tool-branded top-level schema decisions
+- [ ] document GitHub Actions as a common first adopter, not the defining IAM use case
+- [ ] support broader agency consumers over time, including GitLab CI, Terraform run identities, vendor integrations, and cross-account automation roles
+- [ ] evaluate whether multiple OIDC issuer profiles should be supported under the same workspace contract
+- [ ] evaluate reusable role presets or policy fragments for common agency access patterns
+- [ ] decide which future IAM concerns belong in the shared `iam` workspace versus staying service-local
+
+**Tests and docs:**
+- [ ] validate generic OIDC provider creation and reuse paths
+- [ ] validate multiple federated role definitions in one workspace
+- [ ] validate outputs stay stable even as new consumers are added
+- [ ] document the boundary between `iam` access roles and `secrets` runtime secret containers
 
 ## Phase 7 - Workspace Orchestration
 
