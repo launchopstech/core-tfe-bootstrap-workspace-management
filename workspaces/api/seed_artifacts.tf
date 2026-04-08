@@ -1,5 +1,5 @@
 locals {
-  seed_artifact_source_files = local.upload_seed_artifacts ? {
+  seed_artifact_source_files = {
     for lambda_key, lambda_cfg in local.lambdas :
     lambda_key => {
       key = "${local.resolved_artifacts_key_prefix}/${lambda_key}-${local.resolved_artifacts_version}.zip"
@@ -13,7 +13,8 @@ locals {
         )
       )
     }
-  } : {}
+    if try(lambda_cfg.upload_seed_code, false)
+  }
 }
 
 resource "aws_s3_object" "seed_artifacts" {

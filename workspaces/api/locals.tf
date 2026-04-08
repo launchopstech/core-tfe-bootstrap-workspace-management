@@ -19,7 +19,6 @@ locals {
   normalized_waf_workspace_name     = try(trimspace(var.waf_workspace_name), "")
   normalized_secrets_workspace_name = try(trimspace(var.secrets_workspace_name), "")
   create_artifacts_bucket           = try(local.artifacts.create_bucket, false)
-  upload_seed_artifacts             = try(local.artifacts.upload_seed_code, false)
   custom_domains                    = try(local.gw.custom_domains, {})
   lambda_secret_refs = {
     for lambda_key, lambda_cfg in local.lambdas : lambda_key => {
