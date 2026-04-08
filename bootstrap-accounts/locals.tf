@@ -11,10 +11,10 @@ locals {
   # MVP portal support is intentionally narrow: clients can self-service only
   # these blueprints, while agency-managed workspaces stay under control-plane
   # ownership.
-  _client_requestable_services    = toset(["vpc", "rds", "dns", "waf", "secrets", "lambda", "api"])
+  _client_requestable_services    = toset(["vpc", "rds", "dns", "waf", "iam", "secrets", "lambda", "api"])
   _agency_managed_services        = toset(["secure-baseline"])
-  _ownership_overridable_services = toset(["waf", "secrets"])
-  _ownership_default_values       = { waf = "client", secrets = "agency" }
+  _ownership_overridable_services = toset(["waf", "iam", "secrets"])
+  _ownership_default_values       = { waf = "client", iam = "agency", secrets = "agency" }
 
   # Static dependency requirements. Lambda's VPC dependency and API's DNS
   # dependency are dynamic — inferred below from workspace config when needed.
@@ -24,6 +24,7 @@ locals {
     "rds"             = toset(["secure-baseline", "vpc"])
     "dns"             = toset([])
     "waf"             = toset([])
+    "iam"             = toset([])
     "secrets"         = toset(["secure-baseline"])
     "lambda"          = toset(["secure-baseline"])
     "api"             = toset(["secure-baseline", "vpc", "rds"])
@@ -37,6 +38,7 @@ locals {
     "rds"             = toset([])
     "dns"             = toset(["dns_config_json"])
     "waf"             = toset(["waf_config_json"])
+    "iam"             = toset(["iam_config_json"])
     "secrets"         = toset(["secrets_config_json"])
     "lambda"          = toset(["lambda_config_json"])
     "api"             = toset(["api_config_json"])

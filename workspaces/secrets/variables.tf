@@ -74,37 +74,13 @@ variable "secrets_config_json" {
             "rotation_owner": "app-team"
           }
         }
-      },
-      "github_actions": {
-        "repositories": {
-          "org/app-repo": {
-            "aws_access": {
-              "mode": "oidc_role",
-              "managed_policy_arns": ["arn:aws:iam::aws:policy/ReadOnlyAccess"],
-              "inline_policy_json": {
-                "Version": "2012-10-17",
-                "Statement": []
-              }
-            }
-          },
-          "org/legacy-repo": {
-            "aws_access": {
-              "mode": "static_keys",
-              "access_key_id_secret_key": "github_actions_access_key_id",
-              "secret_access_key_secret_key": "github_actions_secret_access_key"
-            }
-          }
-        }
       }
     }
 
-    v1 is metadata-only for secret values. Terraform creates secret containers
-    and GitHub Actions access metadata, but it does not write secret values into
-    Secrets Manager or GitHub. OIDC repository roles are created directly in AWS.
-    Static key fallback creates only the target secret containers; access-key
-    values must be populated out of band. For GitHub Actions OIDC roles,
-    inline_policy_json may be provided either as a nested JSON object
-    (preferred in .tf.json) or as a JSON string.
+    This workspace is metadata-only for secret values. Terraform creates
+    Secrets Manager secret containers, but it does not write secret values into
+    Secrets Manager. Identity concerns such as OIDC providers and federated IAM
+    roles belong in the separate iam workspace.
   EOT
   type        = any
 
