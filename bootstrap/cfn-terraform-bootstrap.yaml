@@ -221,8 +221,11 @@ Resources:
               - iam:TagPolicy
               - iam:UntagPolicy
               - iam:CreateOpenIDConnectProvider
+              - iam:TagOpenIDConnectProvider
+              - iam:UntagOpenIDConnectProvider
               - iam:DeleteOpenIDConnectProvider
               - iam:GetOpenIDConnectProvider
+              - iam:ListOpenIDConnectProviderTags
               - iam:ListOpenIDConnectProviders
               - iam:UpdateOpenIDConnectProviderThumbprint
               - iam:AddClientIDToOpenIDConnectProvider
