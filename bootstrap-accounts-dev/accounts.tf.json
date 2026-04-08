@@ -20,11 +20,13 @@
           "rds",
           "dns",
           "waf",
+          "secrets",
           "lambda",
           "api"
         ],
         "service_workspace_ownership": {
-          "waf": "client"
+          "waf": "client",
+          "secrets": "client"
         },
         "service_workspace_variables": {
           "vpc": {
@@ -74,6 +76,43 @@
                   "limit": 2000,
                   "aggregate_key_type": "IP",
                   "action": "block"
+                }
+              }
+            }
+          },
+          "secrets": {
+            "secrets_config_json": {
+              "github_actions": {
+                "repositories": {
+                  "bomatronix/core-tfe-bootstrap-workspace-management": {
+                    "aws_access": {
+                      "mode": "oidc_role",
+                      "role_name_suffix": "artifact-publisher",
+                      "inline_policy_json": {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                          {
+                            "Sid": "ListArtifactBuckets",
+                            "Effect": "Allow",
+                            "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+                            "Resource": ["arn:aws:s3:::test-client-dev-api-code", "arn:aws:s3:::test-client-dev-lambda-code"]
+                          },
+                          {
+                            "Sid": "ManageArtifactObjects",
+                            "Effect": "Allow",
+                            "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+                            "Resource": ["arn:aws:s3:::test-client-dev-api-code/*", "arn:aws:s3:::test-client-dev-lambda-code/*"]
+                          },
+                          {
+                            "Sid": "UseArtifactKmsKey",
+                            "Effect": "Allow",
+                            "Action": ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey", "kms:DescribeKey"],
+                            "Resource": ["arn:aws:kms:us-east-1:889851937279:key/7a915c50-1807-469e-b15d-7b4d1e6a3ca7"]
+                          }
+                        ]
+                      }
+                    }
+                  }
                 }
               }
             }

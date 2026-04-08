@@ -81,7 +81,10 @@ variable "secrets_config_json" {
             "aws_access": {
               "mode": "oidc_role",
               "managed_policy_arns": ["arn:aws:iam::aws:policy/ReadOnlyAccess"],
-              "inline_policy_json": ""
+              "inline_policy_json": {
+                "Version": "2012-10-17",
+                "Statement": []
+              }
             }
           },
           "org/legacy-repo": {
@@ -99,7 +102,9 @@ variable "secrets_config_json" {
     and GitHub Actions access metadata, but it does not write secret values into
     Secrets Manager or GitHub. OIDC repository roles are created directly in AWS.
     Static key fallback creates only the target secret containers; access-key
-    values must be populated out of band.
+    values must be populated out of band. For GitHub Actions OIDC roles,
+    inline_policy_json may be provided either as a nested JSON object
+    (preferred in .tf.json) or as a JSON string.
   EOT
   type        = any
 
