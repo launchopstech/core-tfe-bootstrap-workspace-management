@@ -221,7 +221,7 @@
                 },
                 "authorizer": {
                   "function_name_suffix": "api-authorizer",
-                  "handler": "seed_authorizer.handler",
+                  "handler": "authorizer.handler",
                   "memory_mb": 128,
                   "timeout_seconds": 10,
                   "runtime": "python3.12",
