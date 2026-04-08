@@ -229,7 +229,7 @@
                 "authorizer": {
                   "name": "api-authorizer",
                   "seed": "seed_authorizer",
-                  "upload_seed_code": true,
+                  "upload_seed_code": false,
                   "function_name_suffix": "api-authorizer",
                   "handler": "authorizer.handler",
                   "memory_mb": 128,
