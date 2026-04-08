@@ -205,7 +205,7 @@
                   "seed": "seed_handler",
                   "upload_seed_code": true,
                   "function_name_suffix": "api-crud",
-                  "handler": "authorizer.handler",
+                  "handler": "seed_handler.handler",
                   "memory_mb": 256,
                   "timeout_seconds": 30,
                   "runtime": "python3.12",
