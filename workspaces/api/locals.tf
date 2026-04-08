@@ -11,12 +11,16 @@ locals {
   uploads_cfg = try(local.config.uploads, { enabled = false })
   waf_cfg     = try(local.gw.waf, { enabled = false })
 
-  configured_artifacts_bucket     = trimspace(try(local.artifacts.bucket, ""))
-  configured_artifacts_key_prefix = trimspace(try(local.artifacts.key_prefix, ""))
-  configured_artifacts_version    = trimspace(try(local.artifacts.version, ""))
-  create_artifacts_bucket         = try(local.artifacts.create_bucket, false)
-  upload_seed_artifacts           = try(local.artifacts.upload_seed_code, false)
-  custom_domains                  = try(local.gw.custom_domains, {})
+  configured_artifacts_bucket       = trimspace(try(local.artifacts.bucket, ""))
+  configured_artifacts_key_prefix   = trimspace(try(local.artifacts.key_prefix, ""))
+  configured_artifacts_version      = trimspace(try(local.artifacts.version, ""))
+  normalized_aws_account_id         = trimspace(coalesce(var.aws_account_id, ""))
+  normalized_dns_workspace_name     = trimspace(coalesce(var.dns_workspace_name, ""))
+  normalized_waf_workspace_name     = trimspace(coalesce(var.waf_workspace_name, ""))
+  normalized_secrets_workspace_name = trimspace(coalesce(var.secrets_workspace_name, ""))
+  create_artifacts_bucket           = try(local.artifacts.create_bucket, false)
+  upload_seed_artifacts             = try(local.artifacts.upload_seed_code, false)
+  custom_domains                    = try(local.gw.custom_domains, {})
   lambda_secret_refs = {
     for lambda_key, lambda_cfg in local.lambdas : lambda_key => {
       for env_name, secret_key in try(lambda_cfg.secret_refs, {}) :
@@ -26,7 +30,7 @@ locals {
   }
 
   default_artifacts_bucket_name = local.configured_artifacts_bucket != "" ? local.configured_artifacts_bucket : (
-    var.aws_account_id != null && trimspace(var.aws_account_id) != "" ? "${local.name_prefix}-${var.aws_account_id}-api-code" : "${local.name_prefix}-api-code"
+    local.normalized_aws_account_id != "" ? "${local.name_prefix}-${local.normalized_aws_account_id}-api-code" : "${local.name_prefix}-api-code"
   )
   resolved_artifacts_bucket      = local.create_artifacts_bucket ? local.default_artifacts_bucket_name : local.configured_artifacts_bucket
   resolved_artifacts_key_prefix  = local.configured_artifacts_key_prefix != "" ? local.configured_artifacts_key_prefix : "api"
@@ -45,12 +49,12 @@ locals {
   custom_domains_need_dns = try(anytrue([
     for key, domain in local.custom_domains : trimspace(try(domain.hosted_zone_id, "")) == ""
   ]), false)
-  use_dns_workspace = local.custom_domains_need_dns && var.dns_workspace_name != null && trimspace(var.dns_workspace_name) != ""
-  use_waf_workspace = local.waf_enabled && var.waf_workspace_name != null && trimspace(var.waf_workspace_name) != ""
+  use_dns_workspace = local.custom_domains_need_dns && local.normalized_dns_workspace_name != ""
+  use_waf_workspace = local.waf_enabled && local.normalized_waf_workspace_name != ""
   has_lambda_secret_refs = try(anytrue([
     for lambda_key, secret_refs in local.lambda_secret_refs : length(keys(secret_refs)) > 0
   ]), false)
-  use_secrets_workspace = local.has_lambda_secret_refs && var.secrets_workspace_name != null && trimspace(var.secrets_workspace_name) != ""
+  use_secrets_workspace = local.has_lambda_secret_refs && local.normalized_secrets_workspace_name != ""
 
   # needs_db implies VPC attachment — DB Lambdas always go through RDS Proxy in VPC
   needs_vpc = local.has_lambdas && anytrue([for k, v in local.lambdas : try(v.needs_vpc, false) || try(v.needs_db, false)]) || local.proxy_enabled
