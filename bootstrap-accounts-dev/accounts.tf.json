@@ -123,6 +123,7 @@
           },
           "lambda": {
             "lambda_config_json": {
+              "name": "test-worker",
               "function_name_suffix": "test-worker",
               "package": {
                 "bucket": "test-client-dev-lambda-code",
@@ -200,6 +201,8 @@
               },
               "lambdas": {
                 "crud": {
+                  "name": "api-crud",
+                  "seed": "seed_handler",
                   "function_name_suffix": "api-crud",
                   "handler": "seed_handler.handler",
                   "memory_mb": 256,
@@ -210,6 +213,8 @@
                   "needs_uploads": false
                 },
                 "presign": {
+                  "name": "api-presign",
+                  "seed": "seed_handler",
                   "function_name_suffix": "api-presign",
                   "handler": "seed_handler.handler",
                   "memory_mb": 128,
@@ -220,6 +225,8 @@
                   "needs_uploads": true
                 },
                 "authorizer": {
+                  "name": "api-authorizer",
+                  "seed": "seed_authorizer",
                   "function_name_suffix": "api-authorizer",
                   "handler": "authorizer.handler",
                   "memory_mb": 128,

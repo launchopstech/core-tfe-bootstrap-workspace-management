@@ -2,7 +2,7 @@
 locals {
   config = var.lambda_config_json
 
-  function_name_suffix = local.config.function_name_suffix
+  function_name_suffix = try(local.config.name, local.config.function_name_suffix)
   function_name        = "${var.client_id}-${var.environment}-${local.function_name_suffix}"
 
   # Package

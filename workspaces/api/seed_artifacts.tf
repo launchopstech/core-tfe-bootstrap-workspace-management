@@ -4,9 +4,13 @@ locals {
     lambda_key => {
       key = "${local.resolved_artifacts_key_prefix}/${lambda_key}-${local.resolved_artifacts_version}.zip"
       source = (
-        contains(keys(local.authorizer_lambda_keys), lambda_key)
-        ? "${path.module}/../seed_code/seed_authorizer.zip"
-        : "${path.module}/../seed_code/seed_handler.zip"
+        try(lambda_cfg.seed, "") != ""
+        ? "${path.module}/../seed_code/${lambda_cfg.seed}.zip"
+        : (
+          contains(keys(local.authorizer_lambda_keys), lambda_key)
+          ? "${path.module}/../seed_code/seed_authorizer.zip"
+          : "${path.module}/../seed_code/seed_handler.zip"
+        )
       )
     }
   } : {}
