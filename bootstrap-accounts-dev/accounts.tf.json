@@ -203,8 +203,9 @@
                 "crud": {
                   "name": "api-crud",
                   "seed": "seed_handler",
+                  "upload_seed_code": true,
                   "function_name_suffix": "api-crud",
-                  "handler": "seed_handler.handler",
+                  "handler": "authorizer.handler",
                   "memory_mb": 256,
                   "timeout_seconds": 30,
                   "runtime": "python3.12",
@@ -215,6 +216,7 @@
                 "presign": {
                   "name": "api-presign",
                   "seed": "seed_handler",
+                  "upload_seed_code": true,
                   "function_name_suffix": "api-presign",
                   "handler": "seed_handler.handler",
                   "memory_mb": 128,
@@ -227,6 +229,7 @@
                 "authorizer": {
                   "name": "api-authorizer",
                   "seed": "seed_authorizer",
+                  "upload_seed_code": true,
                   "function_name_suffix": "api-authorizer",
                   "handler": "authorizer.handler",
                   "memory_mb": 128,
