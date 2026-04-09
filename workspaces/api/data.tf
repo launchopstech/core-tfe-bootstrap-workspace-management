@@ -35,3 +35,22 @@ data "tfe_outputs" "secrets" {
 
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
+
+# ── Latest S3 key lookup for CI/CD-managed lambdas (upload_seed_code = false) ──
+# forge-core uploads with SHA-based keys; this resolves the latest by LastModified.
+data "external" "latest_lambda_key" {
+  for_each = {
+    for k, v in local.lambdas : k => v
+    if !try(v.upload_seed_code, false)
+  }
+
+  program = ["bash", "${path.module}/scripts/latest_s3_key.sh"]
+
+  query = {
+    bucket   = local.resolved_artifacts_bucket
+    prefix   = "${local.resolved_artifacts_key_prefix}/${each.key}-"
+    fallback = "${local.resolved_artifacts_key_prefix}/${each.key}-${local.resolved_artifacts_version}.zip"
+  }
+
+  depends_on = [module.code_bucket]
+}
