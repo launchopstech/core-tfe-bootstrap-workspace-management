@@ -4,8 +4,21 @@ resource "terraform_data" "api_config_validation" {
 
   lifecycle {
     precondition {
+      condition     = alltrue([for k, v in local.lambdas : !can(v.secret_refs)])
+      error_message = "api_config_json.lambdas.<key>.secret_refs has been renamed to env_vars. Update your configuration."
+    }
+
+    precondition {
       condition     = !local.has_lambdas || (local.resolved_artifacts_bucket != "" && local.configured_artifacts_key_prefix != "" && local.configured_artifacts_version != "")
       error_message = "API lambdas require artifacts.bucket, artifacts.key_prefix, and artifacts.version."
+    }
+
+    precondition {
+      condition = alltrue([
+        for k, v in local.lambdas :
+        !try(v.upload_seed_code, false) || startswith(try(v.runtime, "python3.12"), "python")
+      ])
+      error_message = "upload_seed_code = true is only supported for Python runtimes. Seed artifacts (seed_handler, seed_authorizer) are Python-only. For nodejs or other runtimes, set upload_seed_code = false and deploy the initial artifact via CI/CD."
     }
 
     # DB Lambdas require the proxy to be enabled
@@ -73,7 +86,7 @@ resource "terraform_data" "api_config_validation" {
 
     precondition {
       condition     = !local.has_lambda_secret_refs || local.normalized_secrets_workspace_name != ""
-      error_message = "API lambdas that declare secret_refs require secrets_workspace_name so secret ARNs can be read from a sibling secrets workspace."
+      error_message = "API lambdas that declare env_vars require secrets_workspace_name so secret ARNs can be read from a sibling secrets workspace."
     }
 
     precondition {
@@ -84,7 +97,7 @@ resource "terraform_data" "api_config_validation" {
           can(regex("^[A-Za-z_][A-Za-z0-9_]*$", env_name))
         ])
       ])
-      error_message = "Each api_config_json.lambdas.<key>.secret_refs key must be a valid environment-variable name."
+      error_message = "Each api_config_json.lambdas.<key>.env_vars key must be a valid environment-variable name."
     }
 
     precondition {
@@ -92,7 +105,18 @@ resource "terraform_data" "api_config_validation" {
         for lambda_key, missing_keys in local.lambda_missing_secret_keys :
         length(missing_keys) == 0
       ])
-      error_message = "Each api_config_json.lambdas.<key>.secret_refs value must reference a secret key published by the sibling secrets workspace."
+      error_message = "Each api_config_json.lambdas.<key>.env_vars value must reference a secret key published by the sibling secrets workspace."
+    }
+
+    precondition {
+      condition = alltrue([
+        for lambda_key, secret_refs in local.lambda_secret_refs :
+        alltrue([
+          for env_name, secret_key in secret_refs :
+          contains(tolist(local.secrets_with_versions), secret_key)
+        ])
+      ])
+      error_message = "One or more env_vars references point to a secret container with no current version. Set initial_value in secrets_config_json for Terraform-managed values, or set version_exists = true after populating the secret with 'aws secretsmanager put-secret-value'."
     }
 
     precondition {

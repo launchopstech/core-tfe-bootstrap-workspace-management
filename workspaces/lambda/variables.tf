@@ -65,7 +65,7 @@ variable "vpc_workspace_name" {
 }
 
 variable "secrets_workspace_name" {
-  description = "Name of the Secrets workspace. Required when lambda_config_json.secret_refs is non-empty."
+  description = "Name of the Secrets workspace. Required when lambda_config_json.env_vars is non-empty."
   type        = string
   default     = ""
 }
@@ -81,7 +81,7 @@ variable "lambda_config_json" {
       "runtime":     { "handler": "bootstrap", "runtime": "provided.al2023" },
       "performance": { "memory_mb": 256, "timeout_seconds": 30 },
       "environment": { "KEY": "value" },
-      "secret_refs": { "STRIPE_SECRET_ARN": "stripe_api_key" },
+      "env_vars": { "STRIPE_API_KEY": "stripe_api_key" },
       "network":     { "enabled": false },
       "logging":     { "retention_days": 90 },
       "iam":         { "additional_policy_json": "" }
@@ -94,10 +94,13 @@ variable "lambda_config_json" {
     the final artifact key so first-time applies can succeed before the real
     pipeline overwrites that same key.
 
-    secret_refs is optional. It maps Lambda environment-variable names to
-    logical secret keys published by a sibling secrets workspace. This
-    workspace injects the resolved secret ARN into the Lambda environment
-    and grants secretsmanager:GetSecretValue only for the referenced secrets.
+    env_vars is optional. It maps Lambda environment-variable names to
+    logical secret keys published by a sibling secrets workspace. Terraform
+    injects the secret ARN as the env var value; Lambda code reads the actual
+    secret value at runtime via GetSecretValue (process.env.MY_KEY contains
+    the ARN, not the plaintext). This keeps secret material out of Terraform
+    state and means out-of-band rotation propagates without workspace re-apply.
+    The IAM role is automatically granted GetSecretValue on referenced secrets.
   EOT
   type        = any
 

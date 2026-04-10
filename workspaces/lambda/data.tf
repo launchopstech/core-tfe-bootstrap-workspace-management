@@ -16,3 +16,4 @@ data "tfe_outputs" "secrets" {
   organization = var.hcp_terraform_organization
   workspace    = var.secrets_workspace_name
 }
+

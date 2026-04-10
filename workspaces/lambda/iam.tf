@@ -1,10 +1,15 @@
-data "aws_iam_policy_document" "secrets" {
-  count = local.has_resolved_secret_refs ? 1 : 0
+data "aws_iam_policy_document" "lambda_secrets" {
+  count = local.has_secret_refs ? 1 : 0
 
   statement {
-    sid       = "SecretsManagerRead"
-    actions   = ["secretsmanager:GetSecretValue"]
-    resources = values(local.secret_env_vars)
+    sid     = "SecretsManagerRead"
+    actions = ["secretsmanager:GetSecretValue"]
+    # try() mirrors the guard in locals.tf — keeps evaluation from hard-failing
+    # on a missing key before the precondition message can surface.
+    resources = compact([
+      for secret_key in values(local.secret_refs) :
+      try(local.secret_arns_by_key[secret_key], "")
+    ])
   }
 
   statement {
@@ -17,7 +22,7 @@ data "aws_iam_policy_document" "secrets" {
 locals {
   merged_additional_policy_documents = concat(
     trimspace(local.additional_policy_json) != "" ? [local.additional_policy_json] : [],
-    local.has_resolved_secret_refs ? [data.aws_iam_policy_document.secrets[0].json] : [],
+    local.has_secret_refs ? [data.aws_iam_policy_document.lambda_secrets[0].json] : [],
   )
 }
 

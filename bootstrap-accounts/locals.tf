@@ -58,10 +58,10 @@ locals {
     k => try(account.service_workspace_variables.lambda.lambda_config_json.network.enabled, false)
   }
 
-  # Infer Secrets dependency for lambda when lambda_config_json.secret_refs is non-empty.
+  # Infer Secrets dependency for lambda when lambda_config_json.env_vars is non-empty.
   _lambda_needs_secrets = {
     for k, account in var.accounts :
-    k => try(length(keys(account.service_workspace_variables.lambda.lambda_config_json.secret_refs)) > 0, false)
+    k => try(length(keys(account.service_workspace_variables.lambda.lambda_config_json.env_vars)) > 0, false)
   }
 
   # Infer DNS dependency for api when any custom domain omits hosted_zone_id.
@@ -79,12 +79,12 @@ locals {
     k => try(account.service_workspace_variables.api.api_config_json.gateway.waf.enabled, false)
   }
 
-  # Infer Secrets dependency for api when any lambda declares secret_refs.
+  # Infer Secrets dependency for api when any lambda declares env_vars.
   _api_needs_secrets = {
     for k, account in var.accounts :
     k => try(anytrue([
       for lambda_key, lambda_cfg in account.service_workspace_variables.api.api_config_json.lambdas :
-      length(keys(try(lambda_cfg.secret_refs, {}))) > 0
+      length(keys(try(lambda_cfg.env_vars, {}))) > 0
     ]), false)
   }
 

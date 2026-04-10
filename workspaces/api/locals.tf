@@ -22,7 +22,7 @@ locals {
   custom_domains                    = try(local.gw.custom_domains, {})
   lambda_secret_refs = {
     for lambda_key, lambda_cfg in local.lambdas : lambda_key => {
-      for env_name, secret_key in try(lambda_cfg.secret_refs, {}) :
+      for env_name, secret_key in try(lambda_cfg.env_vars, {}) :
       trimspace(env_name) => trimspace(secret_key)
       if trimspace(env_name) != "" && trimspace(secret_key) != ""
     }
@@ -86,7 +86,8 @@ locals {
   waf_web_acl_arn     = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.web_acl_arn), null) : null
   waf_scope           = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.scope), null) : null
   waf_attachment_mode = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.attachment_mode), null) : null
-  secret_arns_by_key  = local.use_secrets_workspace ? try(nonsensitive(data.tfe_outputs.secrets[0].values.secret_arns), {}) : {}
+  secret_arns_by_key    = local.use_secrets_workspace ? try(nonsensitive(data.tfe_outputs.secrets[0].values.secret_arns), {}) : {}
+  secrets_with_versions = local.use_secrets_workspace ? try(nonsensitive(toset(data.tfe_outputs.secrets[0].values.secrets_with_versions)), toset([])) : toset([])
 }
 
 # ── Custom domain resolution ───────────────────────────────────────────────────
@@ -112,11 +113,15 @@ locals {
     )
   }
 
+  # Inject secret ARNs as env var values — Lambda resolves actual values at runtime
+  # via GetSecretValue. This keeps secret material out of Terraform state and ensures
+  # out-of-band rotations (put-secret-value) propagate without workspace re-apply.
+  # try() guards the lookup so a fat-fingered key produces the precondition's friendly
+  # "unknown secret key" error instead of a raw "Invalid index" panic.
   lambda_secret_env_vars = {
     for lambda_key, secret_refs in local.lambda_secret_refs : lambda_key => {
       for env_name, secret_key in secret_refs :
-      env_name => local.secret_arns_by_key[secret_key]
-      if contains(keys(local.secret_arns_by_key), secret_key)
+      env_name => try(local.secret_arns_by_key[secret_key], "")
     }
   }
 }
@@ -138,11 +143,6 @@ locals {
       try(v.needs_uploads, false) ? {
         UPLOADS_BUCKET = module.uploads_bucket[0].bucket_id
       } : {},
-      # Authorizer env vars for lambdas that serve as API Gateway authorizers
-      contains(keys(local.authorizer_lambda_keys), k) ? {
-        AUTH_PROVIDERS        = jsonencode(local.authorizer_lambda_keys[k].auth_providers)
-        DEFAULT_AUTH_PROVIDER = local.authorizer_lambda_keys[k].default_auth_provider
-      } : {},
     )
   }
 }
@@ -151,7 +151,7 @@ locals {
 locals {
   lambdas_with_policies = {
     for k, v in local.lambdas : k => v
-    if try(v.needs_db, false) || try(v.needs_uploads, false) || length(keys(local.lambda_secret_refs[k])) > 0
+    if try(v.needs_db, false) || try(v.needs_uploads, false) || length(try(local.lambda_secret_refs[k], {})) > 0
   }
 
   db_lambda_keys = [for k, v in local.lambdas : k if try(v.needs_db, false)]

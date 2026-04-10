@@ -21,6 +21,7 @@
           "dns",
           "waf",
           "iam",
+          "secrets",
           "lambda",
           "api"
         ],
@@ -121,6 +122,24 @@
               }
             }
           },
+          "secrets": {
+            "secrets_config_json": {
+              "secrets": {
+                "auth_provider": {
+                  "name_suffix": "auth-provider",
+                  "description": "Active auth provider name (e.g. okta, clerk)",
+                  "recovery_window_in_days": 30,
+                  "initial_value": "clerk"
+                },
+                "auth_secret_key": {
+                  "name_suffix": "auth-secret-key",
+                  "description": "Clerk secret key for JWT verification",
+                  "recovery_window_in_days": 30,
+                  "version_exists": false
+                }
+              }
+            }
+          },
           "lambda": {
             "lambda_config_json": {
               "name": "test-worker",
@@ -174,14 +193,7 @@
                 },
                 "authorizers": {
                   "token": {
-                    "lambda_key": "authorizer",
-                    "auth_providers": {
-                      "okta": {
-                        "issuer_url": "https://dev-test.okta.com",
-                        "audiences": ["api://default"]
-                      }
-                    },
-                    "default_auth_provider": "okta"
+                    "lambda_key": "authorizer"
                   }
                 },
                 "routes": {
@@ -234,10 +246,14 @@
                   "handler": "authorizer.handler",
                   "memory_mb": 128,
                   "timeout_seconds": 10,
-                  "runtime": "python3.12",
+                  "runtime": "nodejs22.x",
                   "needs_vpc": false,
                   "needs_db": false,
-                  "needs_uploads": false
+                  "needs_uploads": false,
+                  "env_vars": {
+                    "AUTH_PROVIDER": "auth_provider",
+                    "AUTH_SECRET_KEY": "auth_secret_key"
+                  }
                 }
               },
               "artifacts": {
