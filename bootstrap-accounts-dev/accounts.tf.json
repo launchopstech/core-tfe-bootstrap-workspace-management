@@ -136,6 +136,12 @@
                   "description": "Clerk secret key for JWT verification",
                   "recovery_window_in_days": 30,
                   "version_exists": true
+                },
+                "auth_publishable_key": {
+                  "name_suffix": "auth-publishable-key",
+                  "description": "Clerk publishable key for client-side auth",
+                  "recovery_window_in_days": 30,
+                  "version_exists": true
                 }
               }
             }
