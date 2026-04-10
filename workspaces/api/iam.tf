@@ -12,7 +12,7 @@ data "aws_iam_policy_document" "lambda" {
   }
 
   dynamic "statement" {
-    for_each = try(each.value.needs_db, false) || try(each.value.needs_uploads, false) || length(keys(local.lambda_secret_refs[each.key])) > 0 ? [1] : []
+    for_each = try(each.value.needs_db, false) || try(each.value.needs_uploads, false) || length(try(local.lambda_secret_refs[each.key], {})) > 0 ? [1] : []
     content {
       sid       = "KMSDecrypt"
       actions   = try(each.value.needs_uploads, false) ? ["kms:Decrypt", "kms:GenerateDataKey"] : ["kms:Decrypt"]
@@ -21,11 +21,16 @@ data "aws_iam_policy_document" "lambda" {
   }
 
   dynamic "statement" {
-    for_each = length(keys(local.lambda_secret_env_vars[each.key])) > 0 ? [1] : []
+    for_each = length(try(local.lambda_secret_refs[each.key], {})) > 0 ? [1] : []
     content {
-      sid       = "SecretsManagerRead"
-      actions   = ["secretsmanager:GetSecretValue"]
-      resources = values(local.lambda_secret_env_vars[each.key])
+      sid     = "SecretsManagerRead"
+      actions = ["secretsmanager:GetSecretValue"]
+      # try() mirrors the guard in locals.tf — keeps evaluation from hard-failing
+      # on a missing key before the precondition message can surface.
+      resources = compact([
+        for env_name, secret_key in local.lambda_secret_refs[each.key] :
+        try(local.secret_arns_by_key[secret_key], "")
+      ])
     }
   }
 

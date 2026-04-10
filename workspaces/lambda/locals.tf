@@ -22,7 +22,7 @@ locals {
   # Environment variables
   configured_env_vars = try(local.config.environment, {})
   secret_refs = {
-    for env_name, secret_key in try(local.config.secret_refs, {}) :
+    for env_name, secret_key in try(local.config.env_vars, {}) :
     trimspace(env_name) => trimspace(secret_key)
     if trimspace(env_name) != "" && trimspace(secret_key) != ""
   }
@@ -47,15 +47,20 @@ locals {
   kms_key_arn        = nonsensitive(data.tfe_outputs.secure_baseline.values.kms_key_arn)
   vpc_id             = local.enable_vpc ? nonsensitive(data.tfe_outputs.vpc[0].values.vpc_id) : null
   subnet_ids         = local.enable_vpc ? nonsensitive(data.tfe_outputs.vpc[0].values.private_subnet_ids) : []
-  secret_arns_by_key = local.use_secrets_workspace ? try(nonsensitive(data.tfe_outputs.secrets[0].values.secret_arns), {}) : {}
+  secret_arns_by_key    = local.use_secrets_workspace ? try(nonsensitive(data.tfe_outputs.secrets[0].values.secret_arns), {}) : {}
+  secrets_with_versions = local.use_secrets_workspace ? try(nonsensitive(toset(data.tfe_outputs.secrets[0].values.secrets_with_versions)), toset([])) : toset([])
   missing_secret_keys = setsubtract(
     toset(values(local.secret_refs)),
     toset(keys(local.secret_arns_by_key)),
   )
+  # Inject secret ARNs as env var values — Lambda resolves actual values at runtime
+  # via GetSecretValue. This keeps secret material out of Terraform state and ensures
+  # out-of-band rotations (put-secret-value) propagate without workspace re-apply.
+  # try() guards the lookup so a fat-fingered key produces the precondition's friendly
+  # "unknown secret key" error instead of a raw "Invalid index" panic.
   secret_env_vars = {
     for env_name, secret_key in local.secret_refs :
-    env_name => local.secret_arns_by_key[secret_key]
-    if contains(keys(local.secret_arns_by_key), secret_key)
+    env_name => try(local.secret_arns_by_key[secret_key], "")
   }
   has_resolved_secret_refs = length(keys(local.secret_env_vars)) > 0
   env_vars                 = merge(local.configured_env_vars, local.secret_env_vars)

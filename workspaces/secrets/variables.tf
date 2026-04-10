@@ -77,10 +77,18 @@ variable "secrets_config_json" {
       }
     }
 
-    This workspace is metadata-only for secret values. Terraform creates
-    Secrets Manager secret containers, but it does not write secret values into
-    Secrets Manager. Identity concerns such as OIDC providers and federated IAM
-    roles belong in the separate iam workspace.
+    Terraform creates Secrets Manager secret containers. When initial_value is
+    set, Terraform writes that value on first apply only — subsequent changes to
+    initial_value are ignored (ignore_changes). To rotate a value after initial
+    creation, use aws secretsmanager put-secret-value or your CI/CD pipeline.
+
+    For secrets populated out-of-band (no initial_value): set version_exists = true
+    after running put-secret-value. Consumer workspaces block at apply time unless
+    every env_vars reference appears in secrets_with_versions — either because it
+    has an initial_value, or because version_exists = true is set in config.
+
+    Identity concerns such as OIDC providers and federated IAM roles belong in
+    the separate iam workspace.
   EOT
   type        = any
 

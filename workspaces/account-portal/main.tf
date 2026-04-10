@@ -114,8 +114,8 @@ locals {
 
   # Infer vpc dependency for lambda when lambda_config_json.network.enabled = true
   _lambda_needs_vpc = try(local.requested_projects["lambda"].inputs["lambda_config_json"].network.enabled, false)
-  # Infer secrets dependency for lambda when lambda_config_json.secret_refs is non-empty
-  _lambda_needs_secrets = try(length(keys(local.requested_projects["lambda"].inputs["lambda_config_json"].secret_refs)) > 0, false)
+  # Infer secrets dependency for lambda when lambda_config_json.env_vars is non-empty
+  _lambda_needs_secrets = try(length(keys(local.requested_projects["lambda"].inputs["lambda_config_json"].env_vars)) > 0, false)
   # Infer dns dependency for api when any custom domain omits hosted_zone_id
   _api_needs_dns = try(anytrue([
     for domain_key, domain in local.requested_projects["api"].inputs["api_config_json"].gateway.custom_domains :
@@ -123,10 +123,10 @@ locals {
   ]), false)
   # Infer WAF dependency for api when gateway.waf.enabled = true
   _api_needs_waf = try(local.requested_projects["api"].inputs["api_config_json"].gateway.waf.enabled, false)
-  # Infer secrets dependency for api when any lambda declares secret_refs
+  # Infer secrets dependency for api when any lambda declares env_vars
   _api_needs_secrets = try(anytrue([
     for lambda_key, lambda_cfg in local.requested_projects["api"].inputs["api_config_json"].lambdas :
-    length(keys(try(lambda_cfg.secret_refs, {}))) > 0
+    length(keys(try(lambda_cfg.env_vars, {}))) > 0
   ]), false)
 
   enabled_projects = {
@@ -136,13 +136,13 @@ locals {
         project.requested_dependencies,
         # Infer vpc dependency for lambda when network.enabled = true
         project_key == "lambda" && local._lambda_needs_vpc ? toset(["vpc"]) : toset([]),
-        # Infer secrets dependency for lambda when secret_refs are configured
+        # Infer secrets dependency for lambda when env_vars are configured
         project_key == "lambda" && local._lambda_needs_secrets ? toset(["secrets"]) : toset([]),
         # Infer dns dependency for api when custom domains rely on dns workspace outputs
         project_key == "api" && local._api_needs_dns ? toset(["dns"]) : toset([]),
         # Infer WAF dependency for api when gateway.waf.enabled = true
         project_key == "api" && local._api_needs_waf ? toset(["waf"]) : toset([]),
-        # Infer secrets dependency for api when any lambda declares secret_refs
+        # Infer secrets dependency for api when any lambda declares env_vars
         project_key == "api" && local._api_needs_secrets ? toset(["secrets"]) : toset([]),
       )
     })

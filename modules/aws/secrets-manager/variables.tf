@@ -19,11 +19,26 @@ variable "kms_key_arn" {
 }
 
 variable "secret_definitions" {
-  description = "Logical secret definitions keyed by stable secret key."
+  description = <<-EOT
+    Logical secret definitions keyed by stable secret key.
+
+    initial_value is written once on first apply (ignore_changes = [secret_string]).
+    Subsequent changes to initial_value in config have no effect on the stored value.
+    To rotate a value after initial creation, use aws secretsmanager put-secret-value
+    or your CI/CD pipeline.
+
+    Omit initial_value to create the container only. Set version_exists = true after
+    populating the secret externally (put-secret-value or CI/CD). Consumer workspaces
+    block at apply time unless every referenced secret key is present in
+    secrets_with_versions — either because it has an initial_value managed by
+    Terraform, or because version_exists = true has been set in config.
+  EOT
   type = map(object({
     name_suffix             = string
     description             = optional(string, null)
     recovery_window_in_days = optional(number, 30)
+    initial_value           = optional(string, null)
+    version_exists          = optional(bool, false)
     tags                    = optional(map(string), {})
   }))
   default = {}

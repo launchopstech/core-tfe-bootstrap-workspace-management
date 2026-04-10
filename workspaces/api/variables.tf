@@ -83,7 +83,7 @@ variable "waf_workspace_name" {
 }
 
 variable "secrets_workspace_name" {
-  description = "Name of the Secrets workspace. Used when any API lambda declares secret_refs so this workspace can resolve sibling secret ARNs."
+  description = "Name of the Secrets workspace. Used when any API lambda declares env_vars so this workspace can fetch sibling secret values."
   type        = string
   default     = null
 }
@@ -107,11 +107,7 @@ variable "api_config_json" {
           "partner": { "domain_name": "partner-api.dev.example.com", "hosted_zone_id": "Z1234567890", "base_path": "api" }
         },
         "authorizers": {
-          "token": {
-            "lambda_key": "authorizer",
-            "auth_providers": { "okta": { "issuer_url": "...", "audiences": ["..."] } },
-            "default_auth_provider": "okta"
-          }
+          "token": { "lambda_key": "authorizer" }
         },
         "routes": {
           "proxy":   { "path_part": "{proxy+}", "methods": ["ANY"], "integration_key": "crud",    "authorizer_key": "token" },
@@ -119,7 +115,7 @@ variable "api_config_json" {
         }
       },
       "lambdas": {
-        "crud":       { "function_name_suffix": "api-crud",       "memory_mb": 256, "timeout_seconds": 30, "needs_vpc": true,  "needs_db": true,  "needs_uploads": false, "secret_refs": { "STRIPE_SECRET_ARN": "stripe_api_key" } },
+        "crud":       { "function_name_suffix": "api-crud",       "memory_mb": 256, "timeout_seconds": 30, "needs_vpc": true,  "needs_db": true,  "needs_uploads": false, "env_vars": { "STRIPE_API_KEY": "stripe_api_key" } },
         "presign":    { "function_name_suffix": "api-presign",    "memory_mb": 128, "timeout_seconds": 10, "needs_vpc": false, "needs_db": false, "needs_uploads": true  },
         "authorizer": { "function_name_suffix": "api-authorizer", "memory_mb": 128, "timeout_seconds": 10, "needs_vpc": false, "needs_db": false, "needs_uploads": false }
       },
@@ -147,10 +143,15 @@ variable "api_config_json" {
     sibling waf workspace Web ACL to this API stage. v1 supports only the
     target-owned API attachment path against a REGIONAL Web ACL.
 
-    lambdas.<key>.secret_refs is optional. It maps Lambda environment-variable
+    lambdas.<key>.env_vars is optional. It maps Lambda environment-variable
     names to logical secret keys published by a sibling secrets workspace.
-    This workspace injects the resolved secret ARN into the Lambda environment
-    and grants secretsmanager:GetSecretValue only for the referenced secrets.
+    Terraform injects the secret ARN as the env var value; Lambda code reads
+    the actual secret value at runtime via GetSecretValue (process.env.MY_KEY
+    contains the ARN, not the plaintext). This keeps secret material out of
+    Terraform state and means out-of-band secret rotation (put-secret-value)
+    propagates to running Lambdas without requiring a workspace re-apply.
+    The IAM role for each Lambda is automatically granted GetSecretValue on
+    its referenced secrets.
   EOT
   type        = any
 

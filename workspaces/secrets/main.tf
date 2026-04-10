@@ -8,6 +8,8 @@ locals {
       name_suffix             = trimspace(try(secret.name_suffix, ""))
       description             = try(secret.description, null)
       recovery_window_in_days = try(secret.recovery_window_in_days, 30)
+      initial_value           = try(secret.initial_value, null)
+      version_exists          = try(secret.version_exists, false)
       tags                    = try(secret.tags, {})
     }
   }
@@ -38,6 +40,7 @@ resource "terraform_data" "secrets_config_validation" {
       condition     = length(distinct(local.secret_name_suffixes)) == length(local.secret_name_suffixes)
       error_message = "secrets_config_json.secrets name_suffix values must be unique."
     }
+
   }
 }
 

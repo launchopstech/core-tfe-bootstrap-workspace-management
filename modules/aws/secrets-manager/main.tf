@@ -15,3 +15,18 @@ resource "aws_secretsmanager_secret" "this" {
   recovery_window_in_days = try(each.value.recovery_window_in_days, 30)
   tags                    = merge(local.base_tags, try(each.value.tags, {}))
 }
+
+resource "aws_secretsmanager_secret_version" "initial" {
+  for_each = {
+    for k, v in var.secret_definitions : k => v
+    if try(v.initial_value, null) != null
+  }
+
+  secret_id     = aws_secretsmanager_secret.this[each.key].id
+  secret_string = each.value.initial_value
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}
+
