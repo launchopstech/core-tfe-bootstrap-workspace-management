@@ -160,7 +160,7 @@ resource "tfe_workspace" "service" {
   allow_destroy_plan            = false
   auto_apply                    = false
   speculative_enabled           = true
-  global_remote_state           = length(setintersection(toset(each.value.account.services), toset([for svc, deps in local.service_dependency_requirements : svc if contains(deps, each.value.service)]))) > 0
+  global_remote_state           = contains(local.account_remote_state_published_services[each.value.account_key], each.value.service)
   queue_all_runs                = false
   organization                  = var.organization
   project_id                    = var.project_id
