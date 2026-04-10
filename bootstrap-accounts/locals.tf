@@ -310,6 +310,24 @@ locals {
     )
   }
 
+  # Agency-managed producer workspaces must publish outputs when any same-account
+  # workspace depends on them, including portal-managed dynamic dependencies such
+  # as API -> secrets or API -> waf.
+  account_remote_state_published_services = {
+    for k, account in local.normalized_accounts :
+    k => toset(flatten([
+      for svc in account.services :
+      tolist(setunion(
+        lookup(local.service_dependency_requirements, svc, toset([])),
+        svc == "lambda" && local._lambda_needs_vpc[k] ? toset(["vpc"]) : toset([]),
+        svc == "lambda" && local._lambda_needs_secrets[k] ? toset(["secrets"]) : toset([]),
+        svc == "api" && local._api_needs_dns[k] ? toset(["dns"]) : toset([]),
+        svc == "api" && local._api_needs_waf[k] ? toset(["waf"]) : toset([]),
+        svc == "api" && local._api_needs_secrets[k] ? toset(["secrets"]) : toset([]),
+      ))
+    ]))
+  }
+
   service_missing_required_variables = {
     for k, pair in local.service_accounts :
     k => setsubtract(
