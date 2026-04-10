@@ -129,13 +129,13 @@
                   "name_suffix": "auth-provider",
                   "description": "Active auth provider name (e.g. okta, clerk)",
                   "recovery_window_in_days": 30,
-                  "version_exists": false
+                  "version_exists": true
                 },
                 "auth_secret_key": {
                   "name_suffix": "auth-secret-key",
                   "description": "Clerk secret key for JWT verification",
                   "recovery_window_in_days": 30,
-                  "version_exists": false
+                  "version_exists": true
                 }
               }
             }
