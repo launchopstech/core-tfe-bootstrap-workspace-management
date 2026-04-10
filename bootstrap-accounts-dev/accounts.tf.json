@@ -129,7 +129,7 @@
                   "name_suffix": "auth-provider",
                   "description": "Active auth provider name (e.g. okta, clerk)",
                   "recovery_window_in_days": 30,
-                  "initial_value": "clerk"
+                  "version_exists": false
                 },
                 "auth_secret_key": {
                   "name_suffix": "auth-secret-key",
