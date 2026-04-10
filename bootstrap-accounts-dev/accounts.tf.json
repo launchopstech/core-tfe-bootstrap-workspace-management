@@ -252,7 +252,8 @@
                   "needs_uploads": false,
                   "env_vars": {
                     "AUTH_PROVIDER": "auth_provider",
-                    "AUTH_SECRET_KEY": "auth_secret_key"
+                    "AUTH_SECRET_KEY": "auth_secret_key",
+                    "AUTH_PUBLISHABLE_KEY": "auth_publishable_key"
                   }
                 }
               },
