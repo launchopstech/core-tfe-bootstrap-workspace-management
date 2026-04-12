@@ -22,6 +22,10 @@ variable "secret_definitions" {
   description = <<-EOT
     Logical secret definitions keyed by stable secret key.
 
+    name_suffix is optional. When omitted the map key is used as the suffix
+    (underscores replaced with hyphens), so the final AWS name is:
+      <client_id>-<environment>-<key-with-hyphens>
+
     initial_value is written once on first apply (ignore_changes = [secret_string]).
     Subsequent changes to initial_value in config have no effect on the stored value.
     To rotate a value after initial creation, use aws secretsmanager put-secret-value
@@ -34,7 +38,7 @@ variable "secret_definitions" {
     Terraform, or because version_exists = true has been set in config.
   EOT
   type = map(object({
-    name_suffix             = string
+    name_suffix             = optional(string, null)
     description             = optional(string, null)
     recovery_window_in_days = optional(number, 30)
     initial_value           = optional(string, null)
