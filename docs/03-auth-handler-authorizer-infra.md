@@ -112,8 +112,8 @@ Set `api_config_json` to:
   "lambdas": {
     "auth-handler": {
       "function_name_suffix": "auth-handler",
-      "handler": "bootstrap",
-      "runtime": "provided.al2023",
+      "handler": "auth-handler.handler",
+      "runtime": "nodejs22.x",
       "memory_mb": 256,
       "timeout_seconds": 29,
       "needs_vpc": false,
@@ -179,8 +179,8 @@ Add the **authorizer Lambda** to the existing `api_config_json` and wire it into
 {
   "authorizer": {
     "function_name_suffix": "api-authorizer",
-    "handler": "bootstrap",
-    "runtime": "provided.al2023",
+    "handler": "authorizer.handler",
+    "runtime": "nodejs22.x",
     "memory_mb": 128,
     "timeout_seconds": 10,
     "needs_vpc": false,
@@ -341,8 +341,8 @@ Add `"auth-handler"` to the `services` list and provide its config under `servic
         "lambdas": {
           "auth-handler": {
             "function_name_suffix": "auth-handler",
-            "handler": "bootstrap",
-            "runtime": "provided.al2023",
+            "handler": "auth-handler.handler",
+            "runtime": "nodejs22.x",
             "memory_mb": 256,
             "timeout_seconds": 29,
             "env_vars": {

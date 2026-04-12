@@ -284,8 +284,8 @@
                 },
                 "auth-handler": {
                   "function_name_suffix": "auth-handler",
-                  "handler": "bootstrap",
-                  "runtime": "provided.al2023",
+                  "handler": "auth-handler.handler",
+                  "runtime": "nodejs22.x",
                   "memory_mb": 256,
                   "timeout_seconds": 29,
                   "needs_vpc": false,
