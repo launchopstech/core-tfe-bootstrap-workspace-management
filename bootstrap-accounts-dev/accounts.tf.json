@@ -144,14 +144,6 @@
                   "description": "JSON array of upstream OIDC connection configs (AUTH_HANDLER_CONNECTIONS_JSON)",
                   "recovery_window_in_days": 7,
                   "version_exists": true
-                },
-                "auth_handler_issuer": {
-                  "description": "OIDC issuer URL for platform JWTs (AUTH_HANDLER_ISSUER)",
-                  "recovery_window_in_days": 7
-                },
-                "auth_handler_audience": {
-                  "description": "JWT audience for platform tokens (AUTH_HANDLER_AUDIENCE)",
-                  "recovery_window_in_days": 7
                 }
               }
             }
@@ -277,8 +269,6 @@
                   "needs_db": false,
                   "needs_uploads": false,
                   "env_vars": {
-                    "AUTH_HANDLER_ISSUER":    "auth_handler_issuer",
-                    "AUTH_HANDLER_AUDIENCE":  "auth_handler_audience",
                     "AUTH_HANDLER_PUBLIC_KEY": "auth_handler_public_key"
                   }
                 },
@@ -294,8 +284,6 @@
                   "seed": "seed_auth_handler",
                   "upload_seed_code": false,
                   "env_vars": {
-                    "AUTH_HANDLER_ISSUER":           "auth_handler_issuer",
-                    "AUTH_HANDLER_AUDIENCE":         "auth_handler_audience",
                     "AUTH_HANDLER_PRIVATE_KEY":      "auth_handler_private_key",
                     "AUTH_HANDLER_PUBLIC_KEY":       "auth_handler_public_key",
                     "AUTH_HANDLER_COOKIE_SECRET":    "auth_handler_cookie_secret",

@@ -20,6 +20,13 @@ locals {
   normalized_secrets_workspace_name = try(trimspace(var.secrets_workspace_name), "")
   create_artifacts_bucket           = try(local.artifacts.create_bucket, false)
   custom_domains                    = try(local.gw.custom_domains, {})
+
+  # Auth issuer derived from the 'auth' custom domain — e.g. auth.dev.mindrithm.app → https://auth.dev.mindrithm.app/auth.
+  # audience defaults to "forge-core-api" and can be overridden via api_config_json.auth_audience.
+  auth_custom_domain = trimspace(try(tostring(local.custom_domains.auth.domain_name), ""))
+  auth_issuer_url    = local.auth_custom_domain != "" ? "https://${local.auth_custom_domain}/auth" : ""
+  auth_audience      = trimspace(coalesce(try(tostring(local.config.auth_audience), ""), "forge-core-api"))
+
   lambda_secret_refs = {
     for lambda_key, lambda_cfg in local.lambdas : lambda_key => {
       for env_name, secret_key in try(lambda_cfg.env_vars, {}) :
@@ -130,6 +137,11 @@ locals {
 locals {
   lambda_env_vars = {
     for k, v in local.lambdas : k => merge(
+      # Derived auth config injected first so per-lambda environment can override
+      local.auth_issuer_url != "" ? {
+        AUTH_HANDLER_ISSUER   = local.auth_issuer_url
+        AUTH_HANDLER_AUDIENCE = local.auth_audience
+      } : {},
       try(v.environment, {}),
       try(local.lambda_secret_env_vars[k], {}),
       # DB env vars — IAM auth, no secret exposure
