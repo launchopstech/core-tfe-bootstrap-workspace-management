@@ -292,7 +292,7 @@
                   "needs_db": false,
                   "needs_uploads": false,
                   "seed": "seed_auth_handler",
-                  "upload_seed_code": true,
+                  "upload_seed_code": false,
                   "env_vars": {
                     "AUTH_HANDLER_PRIVATE_KEY":         "auth_handler_private_key",
                     "AUTH_HANDLER_PUBLIC_KEY":          "auth_handler_public_key",
