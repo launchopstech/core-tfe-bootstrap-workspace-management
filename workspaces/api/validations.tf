@@ -116,7 +116,7 @@ resource "terraform_data" "api_config_validation" {
           contains(tolist(local.secrets_with_versions), secret_key)
         ])
       ])
-      error_message = "One or more env_vars references point to a secret container with no current version. Set initial_value in secrets_config_json for Terraform-managed values, or set version_exists = true after populating the secret with 'aws secretsmanager put-secret-value'."
+      error_message = "One or more env_vars references point to a secret container with no current version. Populate the secret out-of-band with 'aws secretsmanager put-secret-value' or CI/CD, then set version_exists = true in secrets_config_json."
     }
 
     precondition {
