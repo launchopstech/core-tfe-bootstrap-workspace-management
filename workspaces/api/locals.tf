@@ -20,6 +20,7 @@ locals {
   normalized_secrets_workspace_name = try(trimspace(var.secrets_workspace_name), "")
   create_artifacts_bucket           = try(local.artifacts.create_bucket, false)
   custom_domains                    = try(local.gw.custom_domains, {})
+
   lambda_secret_refs = {
     for lambda_key, lambda_cfg in local.lambdas : lambda_key => {
       for env_name, secret_key in try(lambda_cfg.env_vars, {}) :
@@ -72,20 +73,20 @@ locals {
 
 # ── Cross-workspace derived values (conditional) ────────────────────────────────
 locals {
-  kms_key_arn         = nonsensitive(data.tfe_outputs.secure_baseline.values.kms_key_arn)
-  vpc_id              = local.needs_vpc ? nonsensitive(data.tfe_outputs.vpc[0].values.vpc_id) : null
-  private_subnet_ids  = local.needs_vpc ? nonsensitive(data.tfe_outputs.vpc[0].values.private_subnet_ids) : []
-  db_identifier       = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_identifier) : null
-  db_secret_arn       = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_secret_arn) : null
-  rds_sg_id           = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.security_group_id) : null
-  is_cluster          = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.enable_cluster) : false
-  db_resource_id      = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_resource_id) : null
-  db_username         = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_username) : null
-  db_name             = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_name) : null
-  dns_hosted_zone_id  = local.use_dns_workspace ? try(nonsensitive(data.tfe_outputs.dns[0].values.hosted_zone_id), null) : null
-  waf_web_acl_arn     = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.web_acl_arn), null) : null
-  waf_scope           = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.scope), null) : null
-  waf_attachment_mode = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.attachment_mode), null) : null
+  kms_key_arn           = nonsensitive(data.tfe_outputs.secure_baseline.values.kms_key_arn)
+  vpc_id                = local.needs_vpc ? nonsensitive(data.tfe_outputs.vpc[0].values.vpc_id) : null
+  private_subnet_ids    = local.needs_vpc ? nonsensitive(data.tfe_outputs.vpc[0].values.private_subnet_ids) : []
+  db_identifier         = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_identifier) : null
+  db_secret_arn         = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_secret_arn) : null
+  rds_sg_id             = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.security_group_id) : null
+  is_cluster            = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.enable_cluster) : false
+  db_resource_id        = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_resource_id) : null
+  db_username           = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_username) : null
+  db_name               = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_name) : null
+  dns_hosted_zone_id    = local.use_dns_workspace ? try(nonsensitive(data.tfe_outputs.dns[0].values.hosted_zone_id), null) : null
+  waf_web_acl_arn       = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.web_acl_arn), null) : null
+  waf_scope             = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.scope), null) : null
+  waf_attachment_mode   = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.attachment_mode), null) : null
   secret_arns_by_key    = local.use_secrets_workspace ? try(nonsensitive(data.tfe_outputs.secrets[0].values.secret_arns), {}) : {}
   secrets_with_versions = local.use_secrets_workspace ? try(nonsensitive(toset(data.tfe_outputs.secrets[0].values.secrets_with_versions)), toset([])) : toset([])
 }
