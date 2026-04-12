@@ -28,6 +28,7 @@ module "api_gateway" {
       methods         = rv.methods
       integration_key = rv.integration_key
       authorizer_key  = try(rv.authorizer_key, null)
+      proxy_child     = try(rv.proxy_child, false)
     }
   }
 

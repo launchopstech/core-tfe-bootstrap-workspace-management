@@ -16,6 +16,8 @@ resource "aws_api_gateway_deployment" "this" {
   depends_on = [
     aws_api_gateway_integration.this,
     aws_api_gateway_integration.options,
+    aws_api_gateway_integration.child_proxy,
+    aws_api_gateway_integration.child_proxy_options,
   ]
 }
 

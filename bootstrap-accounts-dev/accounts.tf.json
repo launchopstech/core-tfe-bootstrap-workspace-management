@@ -125,22 +125,34 @@
           "secrets": {
             "secrets_config_json": {
               "secrets": {
-                "auth_provider": {
-                  "name_suffix": "auth-provider",
-                  "description": "Active auth provider name (e.g. okta, clerk)",
-                  "recovery_window_in_days": 30,
+                "auth_handler_private_key": {
+                  "name_suffix": "auth-handler-private-key",
+                  "description": "RS256 private key used by auth-handler to sign platform JWTs",
+                  "recovery_window_in_days": 7,
                   "version_exists": true
                 },
-                "auth_secret_key": {
-                  "name_suffix": "auth-secret-key",
-                  "description": "Clerk secret key for JWT verification",
-                  "recovery_window_in_days": 30,
+                "auth_handler_public_key": {
+                  "name_suffix": "auth-handler-public-key",
+                  "description": "RS256 public key used by the Lambda authorizer to verify platform JWTs",
+                  "recovery_window_in_days": 7,
                   "version_exists": true
                 },
-                "auth_publishable_key": {
-                  "name_suffix": "auth-publishable-key",
-                  "description": "Clerk publishable key for client-side auth",
-                  "recovery_window_in_days": 30,
+                "auth_handler_cookie_secret": {
+                  "name_suffix": "auth-handler-cookie-secret",
+                  "description": "AES cookie encryption secret for auth-handler browser sessions",
+                  "recovery_window_in_days": 7,
+                  "version_exists": true
+                },
+                "auth_handler_clerk_secret": {
+                  "name_suffix": "auth-handler-clerk-secret",
+                  "description": "Clerk OAuth app client secret for upstream OIDC federation",
+                  "recovery_window_in_days": 7,
+                  "version_exists": true
+                },
+                "auth_handler_connections": {
+                  "name_suffix": "auth-handler-connections",
+                  "description": "JSON array of upstream OIDC connection configs (AUTH_HANDLER_CONNECTIONS_JSON)",
+                  "recovery_window_in_days": 7,
                   "version_exists": true
                 }
               }
@@ -195,6 +207,10 @@
                   "primary": {
                     "domain_name": "api.dev.mindrithm.app",
                     "base_path": ""
+                  },
+                  "auth": {
+                    "domain_name": "auth.dev.mindrithm.app",
+                    "base_path": ""
                   }
                 },
                 "authorizers": {
@@ -214,6 +230,12 @@
                     "methods": ["ANY"],
                     "integration_key": "presign",
                     "authorizer_key": "token"
+                  },
+                  "auth_proxy": {
+                    "path_part": "auth",
+                    "methods": ["ANY"],
+                    "integration_key": "auth-handler",
+                    "proxy_child": true
                   }
                 }
               },
@@ -257,9 +279,26 @@
                   "needs_db": false,
                   "needs_uploads": false,
                   "env_vars": {
-                    "AUTH_PROVIDER": "auth_provider",
-                    "AUTH_SECRET_KEY": "auth_secret_key",
-                    "AUTH_PUBLISHABLE_KEY": "auth_publishable_key"
+                    "AUTH_HANDLER_PUBLIC_KEY": "auth_handler_public_key"
+                  }
+                },
+                "auth-handler": {
+                  "function_name_suffix": "auth-handler",
+                  "handler": "bootstrap",
+                  "runtime": "provided.al2023",
+                  "memory_mb": 256,
+                  "timeout_seconds": 29,
+                  "needs_vpc": false,
+                  "needs_db": false,
+                  "needs_uploads": false,
+                  "seed": "seed_auth_handler",
+                  "upload_seed_code": true,
+                  "env_vars": {
+                    "AUTH_HANDLER_PRIVATE_KEY":         "auth_handler_private_key",
+                    "AUTH_HANDLER_PUBLIC_KEY":          "auth_handler_public_key",
+                    "AUTH_HANDLER_COOKIE_SECRET":       "auth_handler_cookie_secret",
+                    "AUTH_HANDLER_CLERK_CLIENT_SECRET": "auth_handler_clerk_secret",
+                    "AUTH_HANDLER_CONNECTIONS_JSON":    "auth_handler_connections"
                   }
                 }
               },
