@@ -21,12 +21,6 @@ locals {
   create_artifacts_bucket           = try(local.artifacts.create_bucket, false)
   custom_domains                    = try(local.gw.custom_domains, {})
 
-  # Auth issuer derived from the 'auth' custom domain — e.g. auth.dev.mindrithm.app → https://auth.dev.mindrithm.app/auth.
-  # audience defaults to "forge-core-api" and can be overridden via api_config_json.auth_audience.
-  auth_custom_domain = trimspace(try(tostring(local.custom_domains.auth.domain_name), ""))
-  auth_issuer_url    = local.auth_custom_domain != "" ? "https://${local.auth_custom_domain}/auth" : ""
-  auth_audience      = trimspace(coalesce(try(tostring(local.config.auth_audience), ""), "forge-core-api"))
-
   lambda_secret_refs = {
     for lambda_key, lambda_cfg in local.lambdas : lambda_key => {
       for env_name, secret_key in try(lambda_cfg.env_vars, {}) :
@@ -79,20 +73,20 @@ locals {
 
 # ── Cross-workspace derived values (conditional) ────────────────────────────────
 locals {
-  kms_key_arn         = nonsensitive(data.tfe_outputs.secure_baseline.values.kms_key_arn)
-  vpc_id              = local.needs_vpc ? nonsensitive(data.tfe_outputs.vpc[0].values.vpc_id) : null
-  private_subnet_ids  = local.needs_vpc ? nonsensitive(data.tfe_outputs.vpc[0].values.private_subnet_ids) : []
-  db_identifier       = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_identifier) : null
-  db_secret_arn       = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_secret_arn) : null
-  rds_sg_id           = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.security_group_id) : null
-  is_cluster          = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.enable_cluster) : false
-  db_resource_id      = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_resource_id) : null
-  db_username         = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_username) : null
-  db_name             = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_name) : null
-  dns_hosted_zone_id  = local.use_dns_workspace ? try(nonsensitive(data.tfe_outputs.dns[0].values.hosted_zone_id), null) : null
-  waf_web_acl_arn     = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.web_acl_arn), null) : null
-  waf_scope           = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.scope), null) : null
-  waf_attachment_mode = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.attachment_mode), null) : null
+  kms_key_arn           = nonsensitive(data.tfe_outputs.secure_baseline.values.kms_key_arn)
+  vpc_id                = local.needs_vpc ? nonsensitive(data.tfe_outputs.vpc[0].values.vpc_id) : null
+  private_subnet_ids    = local.needs_vpc ? nonsensitive(data.tfe_outputs.vpc[0].values.private_subnet_ids) : []
+  db_identifier         = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_identifier) : null
+  db_secret_arn         = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_secret_arn) : null
+  rds_sg_id             = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.security_group_id) : null
+  is_cluster            = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.enable_cluster) : false
+  db_resource_id        = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_resource_id) : null
+  db_username           = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_username) : null
+  db_name               = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_name) : null
+  dns_hosted_zone_id    = local.use_dns_workspace ? try(nonsensitive(data.tfe_outputs.dns[0].values.hosted_zone_id), null) : null
+  waf_web_acl_arn       = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.web_acl_arn), null) : null
+  waf_scope             = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.scope), null) : null
+  waf_attachment_mode   = local.use_waf_workspace ? try(nonsensitive(data.tfe_outputs.waf[0].values.attachment_mode), null) : null
   secret_arns_by_key    = local.use_secrets_workspace ? try(nonsensitive(data.tfe_outputs.secrets[0].values.secret_arns), {}) : {}
   secrets_with_versions = local.use_secrets_workspace ? try(nonsensitive(toset(data.tfe_outputs.secrets[0].values.secrets_with_versions)), toset([])) : toset([])
 }
@@ -137,11 +131,6 @@ locals {
 locals {
   lambda_env_vars = {
     for k, v in local.lambdas : k => merge(
-      # Derived auth config injected first so per-lambda environment can override
-      local.auth_issuer_url != "" ? {
-        AUTH_HANDLER_ISSUER   = local.auth_issuer_url
-        AUTH_HANDLER_AUDIENCE = local.auth_audience
-      } : {},
       try(v.environment, {}),
       try(local.lambda_secret_env_vars[k], {}),
       # DB env vars — IAM auth, no secret exposure

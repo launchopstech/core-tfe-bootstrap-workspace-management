@@ -90,6 +90,11 @@ resource "terraform_data" "api_config_validation" {
     }
 
     precondition {
+      condition     = !can(local.config.auth_audience)
+      error_message = "api_config_json.auth_audience has been removed. Declare AUTH_HANDLER_AUDIENCE explicitly under lambdas.<key>.env_vars and back it with a sibling secrets workspace secret."
+    }
+
+    precondition {
       condition = alltrue([
         for lambda_key, secret_refs in local.lambda_secret_refs :
         alltrue([
@@ -117,6 +122,36 @@ resource "terraform_data" "api_config_validation" {
         ])
       ])
       error_message = "One or more env_vars references point to a secret container with no current version. Populate the secret out-of-band with 'aws secretsmanager put-secret-value' or CI/CD, then set version_exists = true in secrets_config_json."
+    }
+
+    precondition {
+      condition = !contains(keys(local.lambdas), "authorizer") || alltrue([
+        for env_name in ["AUTH_HANDLER_ISSUER", "AUTH_HANDLER_AUDIENCE", "AUTH_HANDLER_PUBLIC_KEY"] :
+        contains(keys(try(local.lambda_secret_refs["authorizer"], {})), env_name)
+      ])
+      error_message = "api_config_json.lambdas.authorizer.env_vars must declare AUTH_HANDLER_ISSUER, AUTH_HANDLER_AUDIENCE, and AUTH_HANDLER_PUBLIC_KEY."
+    }
+
+    precondition {
+      condition = !contains(keys(local.lambdas), "auth-handler") || alltrue([
+        for env_name in ["AUTH_HANDLER_ISSUER", "AUTH_HANDLER_AUDIENCE", "AUTH_HANDLER_PRIVATE_KEY", "AUTH_HANDLER_PUBLIC_KEY", "AUTH_HANDLER_COOKIE_SECRET", "AUTH_HANDLER_CONNECTIONS_JSON"] :
+        contains(keys(try(local.lambda_secret_refs["auth-handler"], {})), env_name)
+      ])
+      error_message = "api_config_json.lambdas.auth-handler.env_vars must declare AUTH_HANDLER_ISSUER, AUTH_HANDLER_AUDIENCE, AUTH_HANDLER_PRIVATE_KEY, AUTH_HANDLER_PUBLIC_KEY, AUTH_HANDLER_COOKIE_SECRET, and AUTH_HANDLER_CONNECTIONS_JSON."
+    }
+
+    precondition {
+      condition = alltrue([
+        for lambda_key in ["authorizer", "auth-handler"] :
+        !contains(keys(local.lambdas), lambda_key) || alltrue([
+          for env_name in keys(try(local.lambda_secret_refs[lambda_key], {})) :
+          !startswith(env_name, "AUTH_HANDLER_CLERK_") &&
+          env_name != "AUTH_HANDLER_CLIENTS_JSON" &&
+          env_name != "AUTH_SECRET_KEY" &&
+          env_name != "AUTH_PUBLISHABLE_KEY"
+        ])
+      ])
+      error_message = "Remove stale auth env_vars refs from api_config_json. Use AUTH_HANDLER_CONNECTIONS_JSON for provider config, and do not declare AUTH_HANDLER_CLERK_*, AUTH_HANDLER_CLIENTS_JSON, AUTH_SECRET_KEY, or AUTH_PUBLISHABLE_KEY as secret-backed env vars."
     }
 
     precondition {

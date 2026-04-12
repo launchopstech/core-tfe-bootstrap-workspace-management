@@ -19,14 +19,13 @@ Client / Frontend
       ├─► https://auth.{domain}        ← auth-handler workspace
       │         API GW (no authorizer on any route)
       │         └── auth-handler Lambda
-      │               secrets: PRIVATE_KEY, PUBLIC_KEY, COOKIE_SECRET, CLERK_SECRET, CONNECTIONS
-      │               plain:   ISSUER, AUDIENCE, CLERK_*, NODE_ENV, ALLOWED_ORG_IDS
+      │               secrets: ISSUER, AUDIENCE, PRIVATE_KEY, PUBLIC_KEY, COOKIE_SECRET, CONNECTIONS_JSON
+      │               plain:   NODE_ENV, ALLOWED_ORG_IDS
       │
       └─► https://api.{domain}         ← api workspace
                 API GW (TOKEN authorizer on all routes)
                 ├── authorizer Lambda  ← invoked by API GW before every request
-                │     secret: PUBLIC_KEY
-                │     plain:  ISSUER, AUDIENCE
+                │     secrets: ISSUER, AUDIENCE, PUBLIC_KEY
                 └── api Lambda         ← reached only after Allow policy
 ```
 
@@ -50,10 +49,6 @@ Add to `secrets_config_json` in the **secrets** TFE workspace:
     "name_suffix": "auth-handler-cookie-secret",
     "recovery_window_in_days": 7
   },
-  "auth_handler_clerk_secret": {
-    "name_suffix": "auth-handler-clerk-secret",
-    "recovery_window_in_days": 7
-  },
   "auth_handler_connections_json": {
     "name_suffix": "auth-handler-connections",
     "recovery_window_in_days": 7
@@ -71,7 +66,7 @@ Add to `secrets_config_json` in the **secrets** TFE workspace:
 
 **After apply:** populate each secret with `aws secretsmanager put-secret-value` or CI/CD,
 then set `version_exists = true` for each populated secret in `secrets_config_json`.
-After that, note the secret ARNs from `secret_arns` output. These are referenced by
+After that, note the six secret ARNs from `secret_arns` output. These are referenced by
 `env_vars` keys in the Lambda configs below — Terraform injects ARNs as env var values,
 and Lambda code calls `GetSecretValue` at runtime to resolve plaintext.
 
@@ -129,7 +124,6 @@ Set `api_config_json` to:
         "AUTH_HANDLER_PRIVATE_KEY":          "auth_handler_private_key",
         "AUTH_HANDLER_PUBLIC_KEY":           "auth_handler_public_key",
         "AUTH_HANDLER_COOKIE_SECRET":        "auth_handler_cookie_secret",
-        "AUTH_HANDLER_CLERK_CLIENT_SECRET":  "auth_handler_clerk_secret",
         "AUTH_HANDLER_CONNECTIONS_JSON":     "auth_handler_connections_json"
       }
     }
@@ -146,11 +140,6 @@ Set `api_config_json` to:
 
 | Variable | Value |
 |----------|-------|
-| `AUTH_HANDLER_CLERK_DISCOVERY_URL` | Clerk OIDC discovery URL |
-| `AUTH_HANDLER_CLERK_CLIENT_ID` | Clerk OAuth app client ID |
-| `AUTH_HANDLER_CLERK_CONNECTION_ID` | `clerk` |
-| `AUTH_HANDLER_CLERK_CONNECTION_NAME` | `Clerk` |
-| `AUTH_HANDLER_CLERK_SCOPES` | `openid profile email` |
 | `NODE_ENV` | `production` |
 | `ALLOWED_ORG_IDS` | Comma-separated allowed org IDs |
 
@@ -234,13 +223,13 @@ After both workspaces have been applied:
 
 | Action | Detail |
 |--------|--------|
+| Set issuer secret | Update `auth-handler-issuer` to the auth-handler custom domain URL |
+| Set audience secret | Update `auth-handler-audience` to the expected JWT audience such as `forge-core-api` |
 | Set real private key | Update `auth-handler-private-key` secret to the generated RSA private key PEM |
 | Set real public key | Update `auth-handler-public-key` secret to the matching RSA public key PEM |
 | Set cookie secret | Update `auth-handler-cookie-secret` to a random 32-byte base64 string |
-| Set Clerk client secret | Update `auth-handler-clerk-secret` from Clerk dashboard |
+| Set provider config | Update `auth-handler-connections` to the JSON array of upstream OIDC connection configs |
 | Register callback URL | In Clerk OAuth app settings: `https://auth.{domain}/callback/clerk` |
-| Update ISSUER in API workspace | Set `AUTH_HANDLER_ISSUER` to the auth-handler custom domain URL |
-| Set `AUTH_HANDLER_ISSUER` in authorizer | Same value as above |
 | Frontend env | Point `NEXT_PUBLIC_AUTH_ISSUER` to `https://auth.{domain}` |
 
 ---
@@ -344,10 +333,11 @@ Add `"auth-handler"` to the `services` list and provide its config under `servic
             "memory_mb": 256,
             "timeout_seconds": 29,
             "env_vars": {
+              "AUTH_HANDLER_ISSUER":               "auth_handler_issuer",
+              "AUTH_HANDLER_AUDIENCE":             "auth_handler_audience",
               "AUTH_HANDLER_PRIVATE_KEY":          "auth_handler_private_key",
               "AUTH_HANDLER_PUBLIC_KEY":           "auth_handler_public_key",
               "AUTH_HANDLER_COOKIE_SECRET":        "auth_handler_cookie_secret",
-              "AUTH_HANDLER_CLERK_CLIENT_SECRET":  "auth_handler_clerk_secret",
               "AUTH_HANDLER_CONNECTIONS_JSON":     "auth_handler_connections_json"
             }
           }
