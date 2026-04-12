@@ -26,8 +26,34 @@ locals {
     }
   ]...)
 
+  # Routes that request a child {proxy+} resource under their named resource.
+  # e.g. auth_proxy with proxy_child=true → /auth and /auth/{proxy+} both route to the same integration.
+  proxy_child_routes = {
+    for rk, route in var.routes : rk => route if try(route.proxy_child, false)
+  }
+
+  # Flatten proxy_child routes × methods (keyed with "child-" prefix — new resources, no collision)
+  child_proxy_methods = merge([
+    for rk, route in local.proxy_child_routes : {
+      for method in route.methods :
+      "child-${rk}-${method}" => {
+        route_key       = rk
+        method          = method
+        integration_key = route.integration_key
+        authorizer_key  = route.authorizer_key
+      }
+    }
+  ]...)
+
   # CORS origin — validated to be exactly one origin
   cors_origin = var.cors.allowed_origins[0]
+
+  # Shared CORS response_parameters — referenced by both parent and child proxy CORS blocks
+  cors_response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = "'${var.cors.allowed_headers}'"
+    "method.response.header.Access-Control-Allow-Methods" = "'${var.cors.allowed_methods}'"
+    "method.response.header.Access-Control-Allow-Origin"  = "'${local.cors_origin}'"
+  }
 
   custom_domain_urls = {
     for key, domain in local.custom_domains :

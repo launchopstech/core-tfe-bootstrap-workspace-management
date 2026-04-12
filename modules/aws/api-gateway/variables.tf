@@ -69,12 +69,13 @@ variable "integrations" {
 }
 
 variable "routes" {
-  description = "Map of API routes. Each route creates a resource, methods, and integrations."
+  description = "Map of API routes. Each route creates a resource, methods, and integrations. Set proxy_child = true to also create a {proxy+} child resource under this route's resource, enabling sub-path routing (e.g. /auth/{proxy+})."
   type = map(object({
     path_part       = string
     methods         = list(string)
     integration_key = string
     authorizer_key  = optional(string, null)
+    proxy_child     = optional(bool, false)
   }))
 }
 
