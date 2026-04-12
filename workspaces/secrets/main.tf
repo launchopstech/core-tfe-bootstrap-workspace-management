@@ -5,7 +5,10 @@ locals {
   secrets_cfg = try(local.config.secrets, {})
   normalized_secrets = {
     for secret_key, secret in local.secrets_cfg : secret_key => {
-      name_suffix             = trimspace(try(secret.name_suffix, ""))
+      # name_suffix defaults to the map key with underscores replaced by hyphens,
+      # so "auth_handler_private_key" → "auth-handler-private-key" and the final
+      # AWS secret name is "${client_id}-${environment}-auth-handler-private-key".
+      name_suffix             = trimspace(coalesce(try(secret.name_suffix, null), replace(secret_key, "_", "-")))
       description             = try(secret.description, null)
       recovery_window_in_days = try(secret.recovery_window_in_days, 30)
       initial_value           = try(secret.initial_value, null)
