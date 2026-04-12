@@ -147,12 +147,10 @@
                 },
                 "auth_handler_issuer": {
                   "description": "OIDC issuer URL for platform JWTs (AUTH_HANDLER_ISSUER)",
-                  "initial_value": "https://auth.dev.mindrithm.app/auth",
                   "recovery_window_in_days": 7
                 },
                 "auth_handler_audience": {
                   "description": "JWT audience for platform tokens (AUTH_HANDLER_AUDIENCE)",
-                  "initial_value": "forge-core-api",
                   "recovery_window_in_days": 7
                 }
               }

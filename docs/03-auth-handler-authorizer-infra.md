@@ -40,33 +40,38 @@ Add to `secrets_config_json` in the **secrets** TFE workspace:
 {
   "auth_handler_private_key": {
     "name_suffix": "auth-handler-private-key",
-    "initial_value": "REPLACE_ME",
     "recovery_window_in_days": 7
   },
   "auth_handler_public_key": {
     "name_suffix": "auth-handler-public-key",
-    "initial_value": "REPLACE_ME",
     "recovery_window_in_days": 7
   },
   "auth_handler_cookie_secret": {
     "name_suffix": "auth-handler-cookie-secret",
-    "initial_value": "REPLACE_ME",
     "recovery_window_in_days": 7
   },
   "auth_handler_clerk_secret": {
     "name_suffix": "auth-handler-clerk-secret",
-    "initial_value": "REPLACE_ME",
     "recovery_window_in_days": 7
   },
-  "auth_handler_connections": {
+  "auth_handler_connections_json": {
     "name_suffix": "auth-handler-connections",
-    "initial_value": "[]",
+    "recovery_window_in_days": 7
+  },
+  "auth_handler_issuer": {
+    "name_suffix": "auth-handler-issuer",
+    "recovery_window_in_days": 7
+  },
+  "auth_handler_audience": {
+    "name_suffix": "auth-handler-audience",
     "recovery_window_in_days": 7
   }
 }
 ```
 
-**After apply:** note the five secret ARNs from `secret_arns` output. These are referenced by
+**After apply:** populate each secret with `aws secretsmanager put-secret-value` or CI/CD,
+then set `version_exists = true` for each populated secret in `secrets_config_json`.
+After that, note the secret ARNs from `secret_arns` output. These are referenced by
 `env_vars` keys in the Lambda configs below — Terraform injects ARNs as env var values,
 and Lambda code calls `GetSecretValue` at runtime to resolve plaintext.
 
@@ -119,11 +124,13 @@ Set `api_config_json` to:
       "needs_vpc": false,
       "needs_db": false,
       "env_vars": {
+        "AUTH_HANDLER_ISSUER":               "auth_handler_issuer",
+        "AUTH_HANDLER_AUDIENCE":             "auth_handler_audience",
         "AUTH_HANDLER_PRIVATE_KEY":          "auth_handler_private_key",
         "AUTH_HANDLER_PUBLIC_KEY":           "auth_handler_public_key",
         "AUTH_HANDLER_COOKIE_SECRET":        "auth_handler_cookie_secret",
         "AUTH_HANDLER_CLERK_CLIENT_SECRET":  "auth_handler_clerk_secret",
-        "AUTH_HANDLER_CONNECTIONS_JSON":     "auth_handler_connections"
+        "AUTH_HANDLER_CONNECTIONS_JSON":     "auth_handler_connections_json"
       }
     }
   },
@@ -135,12 +142,10 @@ Set `api_config_json` to:
 
 > No `authorizer_key` on the proxy route — auth-handler routes are public by design.
 
-### Plain env vars (set as TFE workspace variables, not secrets)
+### Remaining plain env vars (set as TFE workspace variables)
 
 | Variable | Value |
 |----------|-------|
-| `AUTH_HANDLER_ISSUER` | `https://auth.{domain}` |
-| `AUTH_HANDLER_AUDIENCE` | `forge-core-api` |
 | `AUTH_HANDLER_CLERK_DISCOVERY_URL` | Clerk OIDC discovery URL |
 | `AUTH_HANDLER_CLERK_CLIENT_ID` | Clerk OAuth app client ID |
 | `AUTH_HANDLER_CLERK_CONNECTION_ID` | `clerk` |
@@ -186,6 +191,8 @@ Add the **authorizer Lambda** to the existing `api_config_json` and wire it into
     "needs_vpc": false,
     "needs_db": false,
     "env_vars": {
+      "AUTH_HANDLER_ISSUER": "auth_handler_issuer",
+      "AUTH_HANDLER_AUDIENCE": "auth_handler_audience",
       "AUTH_HANDLER_PUBLIC_KEY": "auth_handler_public_key"
     }
   }
@@ -194,15 +201,6 @@ Add the **authorizer Lambda** to the existing `api_config_json` and wire it into
 
 > `AUTH_HANDLER_PUBLIC_KEY` is injected as a Secrets Manager ARN. The authorizer's
 > `resolveSecret()` function detects ARN format and calls `GetSecretValue` at cold start.
-
-### Plain env vars for authorizer Lambda (TFE workspace variables)
-
-| Variable | Value |
-|----------|-------|
-| `AUTH_HANDLER_ISSUER` | `https://auth.{domain}` |
-| `AUTH_HANDLER_AUDIENCE` | `forge-core-api` |
-
----
 
 ## Step 4: IAM — handled automatically
 
@@ -350,7 +348,7 @@ Add `"auth-handler"` to the `services` list and provide its config under `servic
               "AUTH_HANDLER_PUBLIC_KEY":           "auth_handler_public_key",
               "AUTH_HANDLER_COOKIE_SECRET":        "auth_handler_cookie_secret",
               "AUTH_HANDLER_CLERK_CLIENT_SECRET":  "auth_handler_clerk_secret",
-              "AUTH_HANDLER_CONNECTIONS_JSON":     "auth_handler_connections"
+              "AUTH_HANDLER_CONNECTIONS_JSON":     "auth_handler_connections_json"
             }
           }
         },
@@ -361,7 +359,7 @@ Add `"auth-handler"` to the `services` list and provide its config under `servic
 }
 ```
 
-> Plain env vars (`AUTH_HANDLER_ISSUER`, `AUTH_HANDLER_AUDIENCE`, `AUTH_HANDLER_CLERK_*`, `NODE_ENV`, `ALLOWED_ORG_IDS`) are **not** injected via account JSON — set them as TFE workspace environment variables after the workspace is created.
+> Keep secret-backed Lambda inputs under `env_vars`, backed by the sibling Secrets Manager workspace. Populate the secret values out-of-band, then set `version_exists = true` once each secret has a current version.
 
 ---
 

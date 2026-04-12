@@ -44,6 +44,13 @@ resource "terraform_data" "secrets_config_validation" {
       error_message = "secrets_config_json.secrets name_suffix values must be unique."
     }
 
+    precondition {
+      condition = alltrue([
+        for secret_key, secret in local.normalized_secrets :
+        secret.initial_value == null
+      ])
+      error_message = "secrets_config_json.secrets.<key>.initial_value is not supported in runtime deployer workspaces. TerraformDeployRole has an explicit deny on secretsmanager:GetSecretValue, so populate secret values out-of-band with 'aws secretsmanager put-secret-value' or CI/CD, then set version_exists = true."
+    }
   }
 }
 

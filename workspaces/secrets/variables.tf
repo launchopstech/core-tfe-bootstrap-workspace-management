@@ -77,15 +77,16 @@ variable "secrets_config_json" {
       }
     }
 
-    Terraform creates Secrets Manager secret containers. When initial_value is
-    set, Terraform writes that value on first apply only — subsequent changes to
-    initial_value are ignored (ignore_changes). To rotate a value after initial
-    creation, use aws secretsmanager put-secret-value or your CI/CD pipeline.
+    Terraform creates Secrets Manager secret containers. In this framework's
+    runtime deployer workspaces, secret values must be populated out-of-band
+    because TerraformDeployRole has an explicit deny on
+    secretsmanager:GetSecretValue. Populate the secret with
+    aws secretsmanager put-secret-value or your CI/CD pipeline, then set
+    version_exists = true in config.
 
-    For secrets populated out-of-band (no initial_value): set version_exists = true
-    after running put-secret-value. Consumer workspaces block at apply time unless
-    every env_vars reference appears in secrets_with_versions — either because it
-    has an initial_value, or because version_exists = true is set in config.
+    Consumer workspaces block at apply time unless every env_vars reference
+    appears in secrets_with_versions. In practice that means setting
+    version_exists = true only after the secret already has a current version.
 
     Identity concerns such as OIDC providers and federated IAM roles belong in
     the separate iam workspace.
