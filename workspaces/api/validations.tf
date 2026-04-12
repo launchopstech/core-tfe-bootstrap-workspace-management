@@ -15,10 +15,10 @@ resource "terraform_data" "api_config_validation" {
 
     precondition {
       condition = alltrue([
-        for k, v in local.lambdas :
-        !try(v.upload_seed_code, false) || startswith(try(v.runtime, "python3.12"), "python")
+        for lambda_key, lambda_cfg in local.seed_artifact_source_files :
+        fileexists(lambda_cfg.source)
       ])
-      error_message = "upload_seed_code = true is only supported for Python runtimes. Seed artifacts (seed_handler, seed_authorizer) are Python-only. For nodejs or other runtimes, set upload_seed_code = false and deploy the initial artifact via CI/CD."
+      error_message = "upload_seed_code = true requires a matching ZIP in workspaces/seed_code. Set lambdas.<key>.seed to the ZIP basename (for example seed_auth_handler), or set upload_seed_code = false and deploy the initial artifact via CI/CD."
     }
 
     # DB Lambdas require the proxy to be enabled
