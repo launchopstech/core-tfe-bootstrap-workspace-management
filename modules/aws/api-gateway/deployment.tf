@@ -3,9 +3,120 @@ resource "aws_api_gateway_deployment" "this" {
 
   triggers = {
     redeployment = sha1(jsonencode({
-      routes       = { for k, v in var.routes : k => v }
-      integrations = { for k, v in var.integrations : k => v.lambda_invoke_arn }
-      authorizers  = { for k, v in var.authorizers : k => v.lambda_invoke_arn }
+      rest_api = {
+        name        = aws_api_gateway_rest_api.this.name
+        description = aws_api_gateway_rest_api.this.description
+      }
+      resources = {
+        for k, v in aws_api_gateway_resource.this : k => {
+          parent_id = v.parent_id
+          path_part = v.path_part
+        }
+      }
+      child_resources = {
+        for k, v in aws_api_gateway_resource.child_proxy : k => {
+          parent_id = v.parent_id
+          path_part = v.path_part
+        }
+      }
+      methods = {
+        for k, v in aws_api_gateway_method.this : k => {
+          resource_id   = v.resource_id
+          http_method   = v.http_method
+          authorization = v.authorization
+          authorizer_id = v.authorizer_id
+        }
+      }
+      child_methods = {
+        for k, v in aws_api_gateway_method.child_proxy : k => {
+          resource_id   = v.resource_id
+          http_method   = v.http_method
+          authorization = v.authorization
+          authorizer_id = v.authorizer_id
+        }
+      }
+      options_methods = {
+        for k, v in aws_api_gateway_method.options : k => {
+          resource_id = v.resource_id
+          http_method = v.http_method
+        }
+      }
+      child_options_methods = {
+        for k, v in aws_api_gateway_method.child_proxy_options : k => {
+          resource_id = v.resource_id
+          http_method = v.http_method
+        }
+      }
+      integrations = {
+        for k, v in aws_api_gateway_integration.this : k => {
+          resource_id             = v.resource_id
+          http_method             = v.http_method
+          type                    = v.type
+          integration_http_method = v.integration_http_method
+          uri                     = v.uri
+        }
+      }
+      child_integrations = {
+        for k, v in aws_api_gateway_integration.child_proxy : k => {
+          resource_id             = v.resource_id
+          http_method             = v.http_method
+          type                    = v.type
+          integration_http_method = v.integration_http_method
+          uri                     = v.uri
+        }
+      }
+      options_integrations = {
+        for k, v in aws_api_gateway_integration.options : k => {
+          resource_id       = v.resource_id
+          http_method       = v.http_method
+          type              = v.type
+          request_templates = v.request_templates
+        }
+      }
+      child_options_integrations = {
+        for k, v in aws_api_gateway_integration.child_proxy_options : k => {
+          resource_id       = v.resource_id
+          http_method       = v.http_method
+          type              = v.type
+          request_templates = v.request_templates
+        }
+      }
+      authorizers = {
+        for k, v in aws_api_gateway_authorizer.this : k => {
+          name                             = v.name
+          type                             = v.type
+          authorizer_uri                   = v.authorizer_uri
+          authorizer_credentials           = v.authorizer_credentials
+          authorizer_result_ttl_in_seconds = v.authorizer_result_ttl_in_seconds
+        }
+      }
+      cors = {
+        config = var.cors
+        method_responses = {
+          for k, v in aws_api_gateway_method_response.options_200 : k => {
+            status_code         = v.status_code
+            response_parameters = v.response_parameters
+          }
+        }
+        integration_responses = {
+          for k, v in aws_api_gateway_integration_response.options_200 : k => {
+            status_code         = v.status_code
+            response_parameters = v.response_parameters
+          }
+        }
+        child_method_responses = {
+          for k, v in aws_api_gateway_method_response.child_proxy_options_200 : k => {
+            status_code         = v.status_code
+            response_parameters = v.response_parameters
+          }
+        }
+        child_integration_responses = {
+          for k, v in aws_api_gateway_integration_response.child_proxy_options_200 : k => {
+            status_code         = v.status_code
+            response_parameters = v.response_parameters
+          }
+        }
+      }
     }))
   }
 
@@ -14,10 +125,19 @@ resource "aws_api_gateway_deployment" "this" {
   }
 
   depends_on = [
+    aws_api_gateway_authorizer.this,
+    aws_api_gateway_method.this,
+    aws_api_gateway_method.options,
+    aws_api_gateway_method.child_proxy,
+    aws_api_gateway_method.child_proxy_options,
     aws_api_gateway_integration.this,
     aws_api_gateway_integration.options,
     aws_api_gateway_integration.child_proxy,
     aws_api_gateway_integration.child_proxy_options,
+    aws_api_gateway_method_response.options_200,
+    aws_api_gateway_method_response.child_proxy_options_200,
+    aws_api_gateway_integration_response.options_200,
+    aws_api_gateway_integration_response.child_proxy_options_200,
   ]
 }
 
