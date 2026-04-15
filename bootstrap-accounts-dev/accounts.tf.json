@@ -195,7 +195,7 @@
               "gateway": {
                 "enabled": true,
                 "cors": {
-                  "allowed_origins": ["*"]
+                  "allowed_origins": ["https://development.mindrithm.app"]
                 },
                 "stage": {
                   "name": "v1"
