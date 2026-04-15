@@ -90,6 +90,16 @@ resource "aws_api_gateway_deployment" "this" {
           authorizer_result_ttl_in_seconds = v.authorizer_result_ttl_in_seconds
         }
       }
+      gateway_responses = {
+        cors_4xx = {
+          response_type       = aws_api_gateway_gateway_response.cors_4xx.response_type
+          response_parameters = aws_api_gateway_gateway_response.cors_4xx.response_parameters
+        }
+        cors_5xx = {
+          response_type       = aws_api_gateway_gateway_response.cors_5xx.response_type
+          response_parameters = aws_api_gateway_gateway_response.cors_5xx.response_parameters
+        }
+      }
       cors = {
         config = var.cors
         method_responses = {
@@ -138,6 +148,8 @@ resource "aws_api_gateway_deployment" "this" {
     aws_api_gateway_method_response.child_proxy_options_200,
     aws_api_gateway_integration_response.options_200,
     aws_api_gateway_integration_response.child_proxy_options_200,
+    aws_api_gateway_gateway_response.cors_4xx,
+    aws_api_gateway_gateway_response.cors_5xx,
   ]
 }
 
