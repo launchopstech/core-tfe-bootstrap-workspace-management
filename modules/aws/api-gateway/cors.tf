@@ -66,6 +66,33 @@ resource "aws_api_gateway_gateway_response" "cors_5xx" {
   }
 }
 
+resource "aws_api_gateway_gateway_response" "cors_unauthorized" {
+  rest_api_id   = aws_api_gateway_rest_api.this.id
+  response_type = "UNAUTHORIZED"
+
+  response_parameters = {
+    "gatewayresponse.header.Access-Control-Allow-Origin" = "'${local.cors_origin}'"
+  }
+}
+
+resource "aws_api_gateway_gateway_response" "cors_access_denied" {
+  rest_api_id   = aws_api_gateway_rest_api.this.id
+  response_type = "ACCESS_DENIED"
+
+  response_parameters = {
+    "gatewayresponse.header.Access-Control-Allow-Origin" = "'${local.cors_origin}'"
+  }
+}
+
+resource "aws_api_gateway_gateway_response" "cors_authorizer_failure" {
+  rest_api_id   = aws_api_gateway_rest_api.this.id
+  response_type = "AUTHORIZER_FAILURE"
+
+  response_parameters = {
+    "gatewayresponse.header.Access-Control-Allow-Origin" = "'${local.cors_origin}'"
+  }
+}
+
 # ── CORS OPTIONS for child {proxy+} resources ─────────────────────────────────
 
 resource "aws_api_gateway_method" "child_proxy_options" {
