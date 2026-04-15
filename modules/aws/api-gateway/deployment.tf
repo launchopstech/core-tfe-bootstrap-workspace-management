@@ -99,6 +99,18 @@ resource "aws_api_gateway_deployment" "this" {
           response_type       = aws_api_gateway_gateway_response.cors_5xx.response_type
           response_parameters = aws_api_gateway_gateway_response.cors_5xx.response_parameters
         }
+        cors_unauthorized = {
+          response_type       = aws_api_gateway_gateway_response.cors_unauthorized.response_type
+          response_parameters = aws_api_gateway_gateway_response.cors_unauthorized.response_parameters
+        }
+        cors_access_denied = {
+          response_type       = aws_api_gateway_gateway_response.cors_access_denied.response_type
+          response_parameters = aws_api_gateway_gateway_response.cors_access_denied.response_parameters
+        }
+        cors_authorizer_failure = {
+          response_type       = aws_api_gateway_gateway_response.cors_authorizer_failure.response_type
+          response_parameters = aws_api_gateway_gateway_response.cors_authorizer_failure.response_parameters
+        }
       }
       cors = {
         config = var.cors
@@ -150,6 +162,9 @@ resource "aws_api_gateway_deployment" "this" {
     aws_api_gateway_integration_response.child_proxy_options_200,
     aws_api_gateway_gateway_response.cors_4xx,
     aws_api_gateway_gateway_response.cors_5xx,
+    aws_api_gateway_gateway_response.cors_unauthorized,
+    aws_api_gateway_gateway_response.cors_access_denied,
+    aws_api_gateway_gateway_response.cors_authorizer_failure,
   ]
 }
 
