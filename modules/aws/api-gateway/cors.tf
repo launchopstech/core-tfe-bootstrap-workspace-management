@@ -46,6 +46,26 @@ resource "aws_api_gateway_integration_response" "options_200" {
   response_parameters = local.cors_response_parameters
 }
 
+# ── CORS headers on API Gateway error responses (authorizer 401/403, etc.) ──────
+
+resource "aws_api_gateway_gateway_response" "cors_4xx" {
+  rest_api_id   = aws_api_gateway_rest_api.this.id
+  response_type = "DEFAULT_4XX"
+
+  response_parameters = {
+    "gatewayresponse.header.Access-Control-Allow-Origin" = "'${local.cors_origin}'"
+  }
+}
+
+resource "aws_api_gateway_gateway_response" "cors_5xx" {
+  rest_api_id   = aws_api_gateway_rest_api.this.id
+  response_type = "DEFAULT_5XX"
+
+  response_parameters = {
+    "gatewayresponse.header.Access-Control-Allow-Origin" = "'${local.cors_origin}'"
+  }
+}
+
 # ── CORS OPTIONS for child {proxy+} resources ─────────────────────────────────
 
 resource "aws_api_gateway_method" "child_proxy_options" {
