@@ -1,7 +1,8 @@
 # ── Decode configuration ────────────────────────────────────────────────────────
 locals {
   config      = var.api_config_json
-  name_prefix = "${var.client_id}-${var.environment}"
+  name_prefix = var.env_suffix_mode ? var.client_id : "${var.client_id}-${var.environment}"
+  name_suffix = var.env_suffix_mode ? "-${var.environment}" : ""
 
   # Sub-configs — each section is optional; defaults disable the component
   gw          = try(local.config.gateway, { enabled = false })
@@ -30,7 +31,7 @@ locals {
   }
 
   default_artifacts_bucket_name = local.configured_artifacts_bucket != "" ? local.configured_artifacts_bucket : (
-    local.normalized_aws_account_id != "" ? "${local.name_prefix}-${local.normalized_aws_account_id}-api-code" : "${local.name_prefix}-api-code"
+    local.normalized_aws_account_id != "" ? "${local.name_prefix}-${local.normalized_aws_account_id}-api-code${local.name_suffix}" : "${local.name_prefix}-api-code${local.name_suffix}"
   )
   resolved_artifacts_bucket      = local.create_artifacts_bucket ? local.default_artifacts_bucket_name : local.configured_artifacts_bucket
   resolved_artifacts_key_prefix  = local.configured_artifacts_key_prefix != "" ? local.configured_artifacts_key_prefix : "api"

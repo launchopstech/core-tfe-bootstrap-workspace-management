@@ -1,6 +1,6 @@
 variable "accounts" {
   description = "Map of AWS account metadata keyed by a stable unique account entry key."
-  type        = map(any)
+  type        = any
 }
 
 variable "aws_core_oauth_token_id" {
