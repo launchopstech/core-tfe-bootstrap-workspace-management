@@ -32,7 +32,7 @@ resource "tfe_workspace" "bootstrap_account" {
 
   vcs_repo {
     identifier     = each.value.vcs_repo_identifier
-    branch         = "main"
+    branch         = each.value.vcs_branch
     oauth_token_id = var.aws_core_oauth_token_id
   }
 
@@ -120,7 +120,7 @@ resource "tfe_workspace" "team" {
 
   vcs_repo {
     identifier     = each.value.vcs_repo_identifier
-    branch         = "main"
+    branch         = each.value.vcs_branch
     oauth_token_id = var.aws_core_oauth_token_id
   }
 
@@ -181,7 +181,7 @@ resource "tfe_workspace" "service" {
 
   vcs_repo {
     identifier     = each.value.account.project_vcs_repo_identifier
-    branch         = "main"
+    branch         = each.value.account.vcs_branch
     oauth_token_id = var.aws_core_oauth_token_id
   }
 
