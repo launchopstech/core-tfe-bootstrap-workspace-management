@@ -92,6 +92,14 @@ locals {
 
 # Stage 2: full account normalization and all derived maps.
 locals {
+  _env_branch_defaults = {
+    dev       = "develop"
+    qa        = "qa"
+    prod      = "main"
+    workbench = "develop"
+    sbx       = "develop"
+  }
+
   normalized_accounts = {
     for k, account in var.accounts : k => {
       account_key                 = k
@@ -113,6 +121,7 @@ locals {
       working_directory           = try(account.working_directory, "workspaces/account-bootstrap")
       portal_working_directory    = try(account.portal_working_directory, "workspaces/account-portal")
       vcs_repo_identifier         = try(account.vcs_repo_identifier, "bootstrap")
+      vcs_branch                  = try(trimspace(account.vcs_branch), "") != "" ? trimspace(account.vcs_branch) : lookup(local._env_branch_defaults, lower(try(account.env, "dev")), "main")
       service_vcs_repo_identifier = try(trimspace(account.service_vcs_repo_identifier), "") != "" ? trimspace(account.service_vcs_repo_identifier) : null
       project_vcs_repo_identifier = try(trimspace(account.service_vcs_repo_identifier), "") != "" ? trimspace(account.service_vcs_repo_identifier) : try(account.vcs_repo_identifier, "bootstrap")
       workspace_tags              = try(tolist(account.workspace_tags), [])
