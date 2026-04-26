@@ -5,7 +5,7 @@ module "uploads_bucket" {
 
   client_id   = var.client_id
   environment = var.environment
-  bucket_name = "${local.name_prefix}-api-uploads"
+  bucket_name = "${local.name_prefix}-api-uploads${local.name_suffix}"
   kms_key_arn = local.kms_key_arn
   tags        = var.tags
 }

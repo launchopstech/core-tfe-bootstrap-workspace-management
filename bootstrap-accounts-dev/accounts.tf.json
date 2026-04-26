@@ -1,6 +1,6 @@
 {
   "locals": {
-    "accounts": {
+    "accounts_static": {
       "test-client-dev": {
         "account_id": "889851937279",
         "client_id": "test-client",

@@ -5,7 +5,7 @@
 - Make the workspace roots the JSON boundary. Introduce `api_config_json` and `lambda_config_json` as the only service-specific config inputs for the new roots, decode once in the workspace, and pass typed objects/maps into reusable modules.
 - Keep the reusable modules generic. The API module must stop knowing about `crud`, `presign`, and `authorizer` by name; those become config-driven route/authorizer/integration definitions.
 - Do not refactor older stable roots in this pass.
-
+ 
 ## Implementation Changes
 - Replace the current flat input contract for `workspaces/api` with `api_config_json` and for `workspaces/lambda` with `lambda_config_json`.
   - Keep only metadata/dependency variables outside the blob: `client_id`, `environment`, `aws_region`, `hcp_terraform_organization`, and dependency workspace names.

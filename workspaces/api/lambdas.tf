@@ -3,7 +3,7 @@ module "lambdas" {
   source   = "../../modules/aws/lambda-function"
   for_each = local.lambdas
 
-  function_name = "${local.name_prefix}-${try(each.value.name, each.value.function_name_suffix)}"
+  function_name = "${local.name_prefix}-${try(each.value.name, each.value.function_name_suffix)}${local.name_suffix}"
   client_id     = var.client_id
   environment   = var.environment
   description   = "API Lambda ${each.key} for ${var.client_id} ${var.environment}."

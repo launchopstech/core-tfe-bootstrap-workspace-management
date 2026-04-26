@@ -98,6 +98,8 @@ locals {
       account_id                  = account.account_id
       client_id                   = local._client_ids[k]
       workspace_prefix            = "${local._client_ids[k]}-${lower(try(account.env, "dev"))}"
+      svc_workspace_base          = try(account.workspace_env_suffix_mode, false) ? local._client_ids[k] : "${local._client_ids[k]}-${lower(try(account.env, "dev"))}"
+      svc_workspace_suffix        = try(account.workspace_env_suffix_mode, false) ? "-${lower(try(account.env, "dev"))}" : ""
       account_name                = try(account.account_name, account.account_id)
       env                         = lower(try(account.env, "dev"))
       product_name                = try(account.product_name, "platform")
@@ -292,7 +294,7 @@ locals {
     for pair in flatten([
       for k, account in local.normalized_accounts : [
         for svc in account.services : {
-          key         = "${account.workspace_prefix}-${svc}"
+          key         = "${account.svc_workspace_base}-${svc}${account.svc_workspace_suffix}"
           account_key = k
           account     = account
           service     = svc
@@ -632,7 +634,7 @@ locals {
       "svc:${k}:secure_baseline_workspace_name" => {
         workspace_id = tfe_workspace.service[k].id
         key          = "secure_baseline_workspace_name"
-        value        = jsonencode("${pair.account.workspace_prefix}-secure-baseline")
+        value        = jsonencode("${pair.account.svc_workspace_base}-secure-baseline${pair.account.svc_workspace_suffix}")
       }
       if contains(lookup(local.service_dependency_requirements, pair.service, toset([])), "secure-baseline")
     },
@@ -641,7 +643,7 @@ locals {
       "svc:${k}:vpc_workspace_name" => {
         workspace_id = tfe_workspace.service[k].id
         key          = "vpc_workspace_name"
-        value        = jsonencode("${pair.account.workspace_prefix}-vpc")
+        value        = jsonencode("${pair.account.svc_workspace_base}-vpc${pair.account.svc_workspace_suffix}")
       }
       if contains(lookup(local.service_dependency_requirements, pair.service, toset([])), "vpc")
     },
@@ -650,7 +652,7 @@ locals {
       "svc:${k}:secrets_workspace_name" => {
         workspace_id = tfe_workspace.service[k].id
         key          = "secrets_workspace_name"
-        value        = jsonencode("${pair.account.workspace_prefix}-secrets")
+        value        = jsonencode("${pair.account.svc_workspace_base}-secrets${pair.account.svc_workspace_suffix}")
       }
       if contains(lookup(local.service_dependency_requirements, pair.service, toset([])), "secrets")
     },

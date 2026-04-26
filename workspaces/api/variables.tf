@@ -39,6 +39,12 @@ variable "service_family" {
   default     = null
 }
 
+variable "env_suffix_mode" {
+  description = "When true, name_prefix omits env (env is carried in the resource suffix instead). Enables {product}-{resource}-{env} naming convention."
+  type        = bool
+  default     = false
+}
+
 variable "selected_services" {
   description = "JSON-encoded list of enabled services."
   type        = string
