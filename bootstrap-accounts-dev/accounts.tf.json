@@ -92,7 +92,7 @@
                     "role_name_suffix": "artifact-publisher",
                     "subject_claims": [
                       "repo:launchopstech/core-tfe-bootstrap-workspace-management:*",
-                      "repo:bomatronix/forge-core:environment:development"
+                      "repo:launchopstech/forge-core:environment:development"
                     ],
                     "inline_policy_json": {
                       "Version": "2012-10-17",
