@@ -17,8 +17,8 @@ locals {
       security_tier               = "standard"
       enable_aws_preflight        = false
       workspace_env_suffix_mode   = true
-      vcs_repo_identifier         = "bomatronix/core-tfe-bootstrap-workspace-management"
-      service_vcs_repo_identifier = "bomatronix/core-tfe-bootstrap-workspace-management"
+      vcs_repo_identifier         = "launchopstech/core-tfe-bootstrap-workspace-management"
+      service_vcs_repo_identifier = "launchopstech/core-tfe-bootstrap-workspace-management"
       working_directory           = "workspaces/account-bootstrap"
       services = [
         "account-bootstrap",

@@ -10,7 +10,7 @@
         "region": "us-east-1",
         "enable_aws_preflight": false,
         "security_tier": "high",
-        "vcs_repo_identifier": "bomatronix/core-tfe-bootstrap-workspace-management",
+        "vcs_repo_identifier": "launchopstech/core-tfe-bootstrap-workspace-management",
         "working_directory": "workspaces/account-bootstrap",
         "services": [
           "account-bootstrap"
