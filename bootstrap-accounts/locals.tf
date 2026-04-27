@@ -579,6 +579,14 @@ locals {
       }
       if contains(keys(local.security_tier_variable_set_ids), account.security_tier)
     },
+    {
+      for k, account in local.normalized_accounts :
+      "team:${k}:env_suffix_mode" => {
+        workspace_id = tfe_workspace.team[k].id
+        key          = "env_suffix_mode"
+        value        = tostring(account.svc_workspace_suffix != "")
+      }
+    },
   )
 
   bootstrap_control_variables = {

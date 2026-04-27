@@ -109,3 +109,9 @@ variable "service_family" {
   type        = string
   default     = null
 }
+
+variable "env_suffix_mode" {
+  description = "When true, child workspace names follow <client>-<service>-<env> instead of <client>-<env>-<service>. Seeded by the control plane from workspace_env_suffix_mode."
+  type        = bool
+  default     = false
+}
