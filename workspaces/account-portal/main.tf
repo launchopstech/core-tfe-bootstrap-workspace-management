@@ -15,7 +15,8 @@ terraform {
 locals {
   client_admin_team_name = trimspace(var.client_admin_team_name)
   notification_emails    = try(tolist(jsondecode(var.notification_emails_json)), [])
-  workspace_prefix       = "${var.client_id}-${var.environment}"
+  workspace_prefix = var.env_suffix_mode ? var.client_id : "${var.client_id}-${var.environment}"
+  workspace_suffix = var.env_suffix_mode ? "-${var.environment}" : ""
   account_name           = coalesce(var.aws_account_name, var.aws_account_id)
   normalized_tier        = coalesce(var.security_tier, "")
   normalized_family      = coalesce(var.service_family, "platform")
@@ -298,7 +299,7 @@ locals {
             map_key      = "${project_key}:${replace(dep, "-", "_")}_workspace_name"
             workspace_id = workspace.id
             key          = "${replace(dep, "-", "_")}_workspace_name"
-            value        = "${local.workspace_prefix}-${dep}"
+            value        = "${local.workspace_prefix}-${dep}${local.workspace_suffix}"
           }
         ],
         # Service-specific inputs from project_requests_json
@@ -365,7 +366,7 @@ data "tfe_team" "client_admin" {
 resource "tfe_workspace" "project" {
   for_each = local.enabled_projects
 
-  name                          = "${local.workspace_prefix}-${each.key}"
+  name                          = "${local.workspace_prefix}-${each.key}${local.workspace_suffix}"
   description                   = "Project deployer workspace for ${var.client_id} ${var.environment} ${each.key}."
   allow_destroy_plan            = false
   auto_apply                    = false
