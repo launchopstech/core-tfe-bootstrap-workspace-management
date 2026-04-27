@@ -62,6 +62,8 @@ These workspaces deploy actual infrastructure. They authenticate to AWS via OIDC
 
 **All three reference the same VCS OAuth connection.** It is created once in HCP Terraform Settings → Version Control → Providers.
 
+> **Updating the OAuth token ID** (e.g. after a GitHub org migration or VCS provider re-creation): the `ot-...` token ID must be updated in both `hcp-bootstrap/terraform.tfvars` **and** the `aws_core_oauth_token_id` workspace variable on `bootstrap-account-workspace-management-dev` and `bootstrap-account-workspace-management-workbench`. The workspace variable is **not managed by Terraform** — update it via the HCP Terraform UI or API. See `docs/runbooks/github-org-migration.md` for the full procedure.
+
 ## Recommended Team Setup
 
 ### `platform-automation` Team

@@ -18,6 +18,10 @@ output "control_plane_secrets_variable_set_id" {
   value = try(tfe_variable_set.control_plane_secrets[0].id, null)
 }
 
+output "portal_automation_variable_set_id" {
+  value = try(tfe_variable_set.portal_automation[0].id, null)
+}
+
 output "project_ids" {
   value = {
     sbx       = tfe_project.bootstrap_sbx.id
