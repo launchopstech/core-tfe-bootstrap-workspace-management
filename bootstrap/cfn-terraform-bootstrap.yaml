@@ -10,6 +10,14 @@ Parameters:
     Default: "core-aws"
     Description: Your HCP Terraform organization name.
 
+  ExistingOIDCProviderArn:
+    Type: String
+    Default: ""
+    Description: >
+      ARN of an existing HCP Terraform OIDC provider (arn:aws:iam::<account>:oidc-provider/app.terraform.io).
+      Leave empty to create a new one. Set this when the provider already exists in the account
+      to avoid a 409 AlreadyExists error.
+
   HCPBootstrapProject:
     Type: String
     Description: >
@@ -39,6 +47,15 @@ Parameters:
     AllowedPattern: "^[a-z0-9][a-z0-9-]+[a-z0-9]$"
     ConstraintDescription: Must be lowercase alphanumeric with hyphens (no leading/trailing hyphens).
 
+  AdditionalClientId:
+    Type: String
+    Default: ""
+    Description: >
+      Optional second client identifier to trust in the same AWS account.
+      When both test-client and mindrithm share an account, set ClientId to the
+      primary client and AdditionalClientId to the second client so both
+      workspace patterns are trusted by TerraformDeployRole.
+
   KMSAliasName:
     Type: String
     Description: >
@@ -46,6 +63,10 @@ Parameters:
       Recommended: alias/<ClientId>-<env>-platform (e.g. alias/test-client-dev-platform).
     AllowedPattern: "^alias/[a-zA-Z0-9:/_-]+$"
     ConstraintDescription: Must begin with alias/ and contain only alphanumeric characters, colons, slashes, underscores, or hyphens.
+
+Conditions:
+  CreateOIDCProvider: !Equals [!Ref ExistingOIDCProviderArn, ""]
+  HasAdditionalClient: !Not [!Equals [!Ref AdditionalClientId, ""]]
 
 Resources:
 
@@ -60,6 +81,7 @@ Resources:
   ##############################################################################
   HCPTerraformOIDCProvider:
     Type: AWS::IAM::OIDCProvider
+    Condition: CreateOIDCProvider
     Properties:
       Url: https://app.terraform.io
       ClientIdList:
@@ -380,7 +402,7 @@ Resources:
           - Sid: AllowBootstrapProject
             Effect: Allow
             Principal:
-              Federated: !GetAtt HCPTerraformOIDCProvider.Arn
+              Federated: !If [CreateOIDCProvider, !GetAtt HCPTerraformOIDCProvider.Arn, !Ref ExistingOIDCProviderArn]
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringEquals:
@@ -401,7 +423,7 @@ Resources:
           - Sid: AllowTeamProject
             Effect: Allow
             Principal:
-              Federated: !GetAtt HCPTerraformOIDCProvider.Arn
+              Federated: !If [CreateOIDCProvider, !GetAtt HCPTerraformOIDCProvider.Arn, !Ref ExistingOIDCProviderArn]
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringEquals:
@@ -412,6 +434,48 @@ Resources:
                   - Org: !Ref HCPOrganization
                     TeamProject: !Ref HCPTeamProject
                     Client: !Ref ClientId
+          # Additional client bootstrap workspaces (same account, second tenant)
+          - !If
+            - HasAdditionalClient
+            - Sid: AllowAdditionalBootstrapProject
+              Effect: Allow
+              Principal:
+                Federated: !If [CreateOIDCProvider, !GetAtt HCPTerraformOIDCProvider.Arn, !Ref ExistingOIDCProviderArn]
+              Action: sts:AssumeRoleWithWebIdentity
+              Condition:
+                StringEquals:
+                  app.terraform.io:aud: aws.workload.identity
+                StringLike:
+                  app.terraform.io:sub:
+                    - !Sub
+                      - "organization:${Org}:project:${BootstrapProject}:workspace:bootstrap-${Client}-*:run_phase:*"
+                      - Org: !Ref HCPOrganization
+                        BootstrapProject: !Ref HCPBootstrapProject
+                        Client: !Ref AdditionalClientId
+                    - !Sub
+                      - "organization:${Org}:project:${BootstrapProject}:workspace:${Client}-*:run_phase:*"
+                      - Org: !Ref HCPOrganization
+                        BootstrapProject: !Ref HCPBootstrapProject
+                        Client: !Ref AdditionalClientId
+            - !Ref AWS::NoValue
+          # Additional client team workspaces (same account, second tenant)
+          - !If
+            - HasAdditionalClient
+            - Sid: AllowAdditionalTeamProject
+              Effect: Allow
+              Principal:
+                Federated: !If [CreateOIDCProvider, !GetAtt HCPTerraformOIDCProvider.Arn, !Ref ExistingOIDCProviderArn]
+              Action: sts:AssumeRoleWithWebIdentity
+              Condition:
+                StringEquals:
+                  app.terraform.io:aud: aws.workload.identity
+                StringLike:
+                  app.terraform.io:sub: !Sub
+                    - "organization:${Org}:project:${TeamProject}:workspace:${Client}-*:run_phase:*"
+                    - Org: !Ref HCPOrganization
+                      TeamProject: !Ref HCPTeamProject
+                      Client: !Ref AdditionalClientId
+            - !Ref AWS::NoValue
       ManagedPolicyArns:
         - !Ref TerraformDeployPolicy
       Tags:
@@ -491,7 +555,7 @@ Outputs:
 
   OIDCProviderArn:
     Description: ARN of the HCP Terraform OIDC provider.
-    Value: !GetAtt HCPTerraformOIDCProvider.Arn
+    Value: !If [CreateOIDCProvider, !GetAtt HCPTerraformOIDCProvider.Arn, !Ref ExistingOIDCProviderArn]
 
   PlatformKMSKeyArn:
     Description: Set this as kms_key_arn in workspace variables.
