@@ -10,8 +10,8 @@
         "region": "us-east-1",
         "enable_aws_preflight": false,
         "security_tier": "high",
-        "vcs_repo_identifier": "bomatronix/core-tfe-bootstrap-workspace-management",
-        "service_vcs_repo_identifier": "bomatronix/core-tfe-bootstrap-workspace-management",
+        "vcs_repo_identifier": "launchopstech/core-tfe-bootstrap-workspace-management",
+        "service_vcs_repo_identifier": "launchopstech/core-tfe-bootstrap-workspace-management",
         "working_directory": "workspaces/account-bootstrap",
         "services": [
           "account-bootstrap",
@@ -91,7 +91,7 @@
                   "artifact_publisher": {
                     "role_name_suffix": "artifact-publisher",
                     "subject_claims": [
-                      "repo:bomatronix/core-tfe-bootstrap-workspace-management:*",
+                      "repo:launchopstech/core-tfe-bootstrap-workspace-management:*",
                       "repo:bomatronix/forge-core:environment:development"
                     ],
                     "inline_policy_json": {
