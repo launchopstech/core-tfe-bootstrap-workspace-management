@@ -20,13 +20,13 @@ variable "enable_cloudtrail" {
 }
 
 variable "enable_config" {
-  description = "Enable AWS Config for resource configuration recording."
+  description = "Enable AWS Config for resource configuration recording. SINGLETON: only 1 active recorder per account per region. Set to false if another client's workspace already created a recorder in this account."
   type        = bool
   default     = true
 }
 
 variable "enable_guardduty" {
-  description = "Enable GuardDuty threat detection."
+  description = "Enable GuardDuty threat detection. SINGLETON: only 1 detector per account per region. Set to false if another client's workspace already created a detector in this account."
   type        = bool
   default     = true
 }
@@ -38,13 +38,13 @@ variable "enable_guardduty_eks_audit" {
 }
 
 variable "enable_security_hub" {
-  description = "Enable Security Hub with CIS and FSBP standards. Requires GuardDuty and Config to be enabled first."
+  description = "Enable Security Hub with CIS and FSBP standards. SINGLETON: only 1 per account. Set to false if another client's workspace already enabled Security Hub in this account. Requires GuardDuty and Config to be enabled first."
   type        = bool
   default     = true
 }
 
 variable "enable_access_analyzer" {
-  description = "Enable IAM Access Analyzer for account-level policy analysis."
+  description = "Enable IAM Access Analyzer for account-level policy analysis. SINGLETON: only 1 ACCOUNT-type analyzer per account per region (quota enforced). Set to false if another client's workspace already created an analyzer in this account."
   type        = bool
   default     = true
 }

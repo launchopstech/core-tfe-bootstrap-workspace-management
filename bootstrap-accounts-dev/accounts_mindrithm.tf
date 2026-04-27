@@ -37,10 +37,11 @@ locals {
           database_subnets = ["10.1.201.0/24", "10.1.202.0/24"]
         }
         "secure-baseline" = {
-          kms_key_arn         = local.kms_key_arn
-          enable_config       = false
-          enable_guardduty    = false
-          enable_security_hub = false
+          kms_key_arn            = local.kms_key_arn
+          enable_config          = false
+          enable_guardduty       = false
+          enable_security_hub    = false
+          enable_access_analyzer = false
         }
         rds = {
           kms_key_arn                 = local.kms_key_arn

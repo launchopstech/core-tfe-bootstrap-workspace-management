@@ -3,6 +3,8 @@ Description: >
   One-time bootstrap for HCP Terraform Dynamic Provider Credentials.
   Creates the OIDC provider and TerraformDeployRole so HCP Terraform
   workspaces can authenticate to this AWS account without long-lived keys.
+  Supports unlimited clients per account — trust is scoped to HCP Terraform
+  project boundaries, not per-client workspace name patterns.
 
 Parameters:
   HCPOrganization:
@@ -10,20 +12,11 @@ Parameters:
     Default: "core-aws"
     Description: Your HCP Terraform organization name.
 
-  ExistingOIDCProviderArn:
-    Type: String
-    Default: ""
-    Description: >
-      ARN of an existing HCP Terraform OIDC provider (arn:aws:iam::<account>:oidc-provider/app.terraform.io).
-      Leave empty to create a new one. Set this when the provider already exists in the account
-      to avoid a 409 AlreadyExists error.
-
   HCPBootstrapProject:
     Type: String
     Description: >
       HCP Terraform project that hosts bootstrap workspaces
-      (e.g. bootstrap-dev). Trust is scoped to bootstrap-<ClientId>-*
-      workspaces inside this project.
+      (e.g. bootstrap-dev). All workspaces in this project are trusted.
     AllowedPattern: "^[^*]+$"
     ConstraintDescription: Must be an explicit project name — no wildcards.
 
@@ -31,42 +24,29 @@ Parameters:
     Type: String
     Description: >
       HCP Terraform project that hosts team and service workspaces
-      (e.g. team-dev). Trust is scoped to <ClientId>-* workspaces
-      inside this project.
+      (e.g. team-dev). All workspaces in this project are trusted.
     AllowedPattern: "^[^*]+$"
     ConstraintDescription: Must be an explicit project name — no wildcards.
 
-  ClientId:
-    Type: String
-    Description: >
-      Client identifier (e.g. test-client). Controls which workspace names
-      are trusted per project:
-        bootstrap project  → bootstrap-<ClientId>-*
-        team project       → <ClientId>-*  (covers <ClientId>-<env> and
-                             <ClientId>-<env>-<service>)
-    AllowedPattern: "^[a-z0-9][a-z0-9-]+[a-z0-9]$"
-    ConstraintDescription: Must be lowercase alphanumeric with hyphens (no leading/trailing hyphens).
-
-  AdditionalClientId:
+  ExistingOIDCProviderArn:
     Type: String
     Default: ""
     Description: >
-      Optional second client identifier to trust in the same AWS account.
-      When both test-client and mindrithm share an account, set ClientId to the
-      primary client and AdditionalClientId to the second client so both
-      workspace patterns are trusted by TerraformDeployRole.
+      ARN of an existing HCP Terraform OIDC provider
+      (arn:aws:iam::<account>:oidc-provider/app.terraform.io).
+      Leave empty to create a new one. Set this when the provider already
+      exists in the account to avoid a 409 AlreadyExists error.
 
   KMSAliasName:
     Type: String
     Description: >
       Alias for the platform KMS key. Format: alias/<name>.
-      Recommended: alias/<ClientId>-<env>-platform (e.g. alias/test-client-dev-platform).
+      Recommended: alias/<account-nickname>-platform (e.g. alias/dev-shared-platform).
     AllowedPattern: "^alias/[a-zA-Z0-9:/_-]+$"
     ConstraintDescription: Must begin with alias/ and contain only alphanumeric characters, colons, slashes, underscores, or hyphens.
 
 Conditions:
   CreateOIDCProvider: !Equals [!Ref ExistingOIDCProviderArn, ""]
-  HasAdditionalClient: !Not [!Equals [!Ref AdditionalClientId, ""]]
 
 Resources:
 
@@ -78,6 +58,8 @@ Resources:
   #   openssl s_client -connect app.terraform.io:443 -showcerts 2>/dev/null \
   #     | openssl x509 -fingerprint -sha1 -noout | tr -d ':' | tr 'A-F' 'a-f'
   # If HashiCorp rotates their TLS cert, update this thumbprint and redeploy.
+  #
+  # Skipped when ExistingOIDCProviderArn is supplied (already exists in account).
   ##############################################################################
   HCPTerraformOIDCProvider:
     Type: AWS::IAM::OIDCProvider
@@ -350,19 +332,15 @@ Resources:
 
           # ── Explicit deny: S3 data exfiltration ──────────────────────────────
           # Prevents reading arbitrary object data while still allowing Terraform
-          # to manage the per-client Lambda code buckets it owns.
-          - Sid: DenyS3ObjectReadExceptClientCodeBuckets
+          # to manage client Lambda code buckets it owns.
+          - Sid: DenyS3ObjectRead
             Effect: Deny
             Action:
               - s3:GetObject
               - s3:GetObjectVersion
-            NotResource:
-              - !Sub "arn:aws:s3:::${ClientId}-*-api-code/*"
-              - !Sub "arn:aws:s3:::${ClientId}-*-lambda-code/*"
+            Resource: "*"
 
           # Prevents making buckets or objects publicly accessible.
-          # Note: s3:PutBucketPolicy is allowed because secure-baseline must set
-          # bucket policies for CloudTrail and Config log delivery.
           - Sid: DenyS3AclChanges
             Effect: Deny
             Action:
@@ -383,8 +361,13 @@ Resources:
   ##############################################################################
   # TerraformDeployRole — assumed by HCP Terraform workspaces via OIDC
   #
-  # Two trust statements — one per HCP project — eliminate the project:*
-  # wildcard while covering both bootstrap and team/service workspace types.
+  # Trust is scoped to the HCP Terraform project level (not per-client workspace
+  # name). This supports unlimited clients per account without template changes.
+  #
+  # Security model: the trust boundary is enforced by HCP Terraform project
+  # access control. Only workspaces the agency places in HCPBootstrapProject
+  # or HCPTeamProject can assume this role. This is appropriate when the agency
+  # owns and controls both HCP Terraform projects.
   ##############################################################################
   TerraformDeployRole:
     Type: AWS::IAM::Role
@@ -393,12 +376,12 @@ Resources:
       Description: >
         Assumed by HCP Terraform workspaces via OIDC. Grants Terraform the
         permissions needed to manage platform infrastructure in this account.
+        Trusts all workspaces in the configured HCP Terraform projects.
       MaxSessionDuration: 3600
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
-          # Bootstrap workspaces: bootstrap-<ClientId>-<env>
-          # Agency-managed deployers: <ClientId>-<env>-<service> (e.g. secure-baseline)
+          # All workspaces in the bootstrap project (bootstrap-<client>-<env>)
           - Sid: AllowBootstrapProject
             Effect: Allow
             Principal:
@@ -408,18 +391,11 @@ Resources:
               StringEquals:
                 app.terraform.io:aud: aws.workload.identity
               StringLike:
-                app.terraform.io:sub:
-                  - !Sub
-                    - "organization:${Org}:project:${BootstrapProject}:workspace:bootstrap-${Client}-*:run_phase:*"
-                    - Org: !Ref HCPOrganization
-                      BootstrapProject: !Ref HCPBootstrapProject
-                      Client: !Ref ClientId
-                  - !Sub
-                    - "organization:${Org}:project:${BootstrapProject}:workspace:${Client}-*:run_phase:*"
-                    - Org: !Ref HCPOrganization
-                      BootstrapProject: !Ref HCPBootstrapProject
-                      Client: !Ref ClientId
-          # Team and service workspaces: <ClientId>-<env> and <ClientId>-<env>-<service>
+                app.terraform.io:sub: !Sub
+                  - "organization:${Org}:project:${BootstrapProject}:workspace:*:run_phase:*"
+                  - Org: !Ref HCPOrganization
+                    BootstrapProject: !Ref HCPBootstrapProject
+          # All workspaces in the team project (<client>-<env> and <client>-<env>-<service>)
           - Sid: AllowTeamProject
             Effect: Allow
             Principal:
@@ -430,52 +406,9 @@ Resources:
                 app.terraform.io:aud: aws.workload.identity
               StringLike:
                 app.terraform.io:sub: !Sub
-                  - "organization:${Org}:project:${TeamProject}:workspace:${Client}-*:run_phase:*"
+                  - "organization:${Org}:project:${TeamProject}:workspace:*:run_phase:*"
                   - Org: !Ref HCPOrganization
                     TeamProject: !Ref HCPTeamProject
-                    Client: !Ref ClientId
-          # Additional client bootstrap workspaces (same account, second tenant)
-          - !If
-            - HasAdditionalClient
-            - Sid: AllowAdditionalBootstrapProject
-              Effect: Allow
-              Principal:
-                Federated: !If [CreateOIDCProvider, !GetAtt HCPTerraformOIDCProvider.Arn, !Ref ExistingOIDCProviderArn]
-              Action: sts:AssumeRoleWithWebIdentity
-              Condition:
-                StringEquals:
-                  app.terraform.io:aud: aws.workload.identity
-                StringLike:
-                  app.terraform.io:sub:
-                    - !Sub
-                      - "organization:${Org}:project:${BootstrapProject}:workspace:bootstrap-${Client}-*:run_phase:*"
-                      - Org: !Ref HCPOrganization
-                        BootstrapProject: !Ref HCPBootstrapProject
-                        Client: !Ref AdditionalClientId
-                    - !Sub
-                      - "organization:${Org}:project:${BootstrapProject}:workspace:${Client}-*:run_phase:*"
-                      - Org: !Ref HCPOrganization
-                        BootstrapProject: !Ref HCPBootstrapProject
-                        Client: !Ref AdditionalClientId
-            - !Ref AWS::NoValue
-          # Additional client team workspaces (same account, second tenant)
-          - !If
-            - HasAdditionalClient
-            - Sid: AllowAdditionalTeamProject
-              Effect: Allow
-              Principal:
-                Federated: !If [CreateOIDCProvider, !GetAtt HCPTerraformOIDCProvider.Arn, !Ref ExistingOIDCProviderArn]
-              Action: sts:AssumeRoleWithWebIdentity
-              Condition:
-                StringEquals:
-                  app.terraform.io:aud: aws.workload.identity
-                StringLike:
-                  app.terraform.io:sub: !Sub
-                    - "organization:${Org}:project:${TeamProject}:workspace:${Client}-*:run_phase:*"
-                    - Org: !Ref HCPOrganization
-                      TeamProject: !Ref HCPTeamProject
-                      Client: !Ref AdditionalClientId
-            - !Ref AWS::NoValue
       ManagedPolicyArns:
         - !Ref TerraformDeployPolicy
       Tags:

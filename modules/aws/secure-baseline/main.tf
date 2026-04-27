@@ -224,6 +224,8 @@ resource "aws_cloudtrail" "main" {
     ClientId    = var.client_id
     Environment = var.environment
   })
+
+  depends_on = [aws_s3_bucket_policy.logs]
 }
 
 ################################################################################
