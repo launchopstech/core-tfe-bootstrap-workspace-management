@@ -15,8 +15,8 @@ terraform {
 locals {
   client_admin_team_name = trimspace(var.client_admin_team_name)
   notification_emails    = try(tolist(jsondecode(var.notification_emails_json)), [])
-  workspace_prefix = var.env_suffix_mode ? var.client_id : "${var.client_id}-${var.environment}"
-  workspace_suffix = var.env_suffix_mode ? "-${var.environment}" : ""
+  workspace_prefix       = var.env_suffix_mode ? var.client_id : "${var.client_id}-${var.environment}"
+  workspace_suffix       = var.env_suffix_mode ? "-${var.environment}" : ""
   account_name           = coalesce(var.aws_account_name, var.aws_account_id)
   normalized_tier        = coalesce(var.security_tier, "")
   normalized_family      = coalesce(var.service_family, "platform")
@@ -392,7 +392,7 @@ resource "tfe_workspace" "project" {
 
   vcs_repo {
     identifier     = var.project_vcs_repo_identifier
-    branch         = "main"
+    branch         = var.project_vcs_branch
     oauth_token_id = var.project_vcs_oauth_token_id
   }
 

@@ -506,6 +506,14 @@ locals {
     },
     {
       for k, account in local.normalized_accounts :
+      "team:${k}:project_vcs_branch" => {
+        workspace_id = tfe_workspace.team[k].id
+        key          = "project_vcs_branch"
+        value        = account.vcs_branch
+      }
+    },
+    {
+      for k, account in local.normalized_accounts :
       "team:${k}:project_requests_json" => {
         workspace_id = tfe_workspace.team[k].id
         key          = "project_requests_json"
