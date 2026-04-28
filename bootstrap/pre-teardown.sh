@@ -10,6 +10,7 @@
 #   DenyAuditTamper explicit deny in TerraformDeployPolicy:
 #     - CloudTrail trail (cloudtrail:DeleteTrail is explicitly denied)
 #     - S3 logging bucket (force_destroy=false)
+#     - Secrets Manager secrets pending deletion (client-specific, unblocks re-apply)
 #     - Config recorder / delivery channel (ONLY if no other clients share account)
 #     - GuardDuty detector (ONLY if no other clients share account)
 #
@@ -154,8 +155,30 @@ else
 fi
 echo ""
 
-# ── 3. Config recorder + delivery channel (SINGLETON — shared account safe) ──
-echo -e "${BOLD}[3] AWS Config Recorder (account singleton)${NC}"
+# ── 3. Secrets Manager pending-deletion secrets (client-specific) ─────────────
+echo -e "${BOLD}[3] Secrets Manager Pending-Deletion Secrets (client-specific — always safe to delete)${NC}"
+PENDING_SECRETS=$(aws secretsmanager list-secrets \
+  --include-planned-deletion \
+  --filter Key=name,Values="${NAME_PREFIX}-" \
+  --query "SecretList[?DeletedDate!=null].Name" \
+  --output text 2>/dev/null || true)
+
+if [[ -n "$PENDING_SECRETS" ]]; then
+  for secret_name in $PENDING_SECRETS; do
+    info "Force-deleting pending: $secret_name"
+    aws secretsmanager delete-secret \
+      --secret-id "$secret_name" \
+      --force-delete-without-recovery 2>/dev/null && \
+      ok "Deleted $secret_name" || \
+      { fail "Failed to delete $secret_name"; ERRORS=$((ERRORS+1)); }
+  done
+else
+  ok "No pending-deletion secrets found — nothing to do"
+fi
+echo ""
+
+# ── 4. Config recorder + delivery channel (SINGLETON — shared account safe) ──
+echo -e "${BOLD}[4] AWS Config Recorder (account singleton)${NC}"
 CONFIG_RECORDER=$(aws configservice describe-configuration-recorders \
   --query "ConfigurationRecorders[?contains(name,'${NAME_PREFIX}')].name" \
   --output text 2>/dev/null || true)
@@ -187,7 +210,7 @@ fi
 echo ""
 
 # ── 4. GuardDuty detector (SINGLETON — shared account safe) ──────────────────
-echo -e "${BOLD}[4] GuardDuty Detector (account singleton)${NC}"
+echo -e "${BOLD}[5] GuardDuty Detector (account singleton)${NC}"
 DETECTORS=$(aws guardduty list-detectors --query 'DetectorIds' --output text 2>/dev/null || true)
 
 if [[ -n "$DETECTORS" ]]; then
@@ -215,7 +238,7 @@ fi
 echo ""
 
 # ── 5. Security Hub (SINGLETON — always manual) ───────────────────────────────
-echo -e "${BOLD}[5] Security Hub (account singleton — manual only)${NC}"
+echo -e "${BOLD}[6] Security Hub (account singleton — manual only)${NC}"
 warn "Security Hub is account-level and cannot be safely automated."
 info "If this is the last client in the account and you want to disable it:"
 info "  aws securityhub disable-security-hub"

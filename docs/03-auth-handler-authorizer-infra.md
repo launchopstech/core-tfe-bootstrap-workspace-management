@@ -70,6 +70,21 @@ After that, note the six secret ARNs from `secret_arns` output. These are refere
 `env_vars` keys in the Lambda configs below — Terraform injects ARNs as env var values,
 and Lambda code calls `GetSecretValue` at runtime to resolve plaintext.
 
+Do not apply the consuming `api` or `lambda` workspace until every referenced
+secret has `version_exists = true`. Consumer workspaces read the sibling
+`secrets_with_versions` output and intentionally fail fast if an `env_vars`
+reference points at a secret container with no current version.
+
+For a combined auth-handler + authorizer API workspace, these logical secret
+keys must be ready before apply:
+
+- `auth_handler_issuer`
+- `auth_handler_audience`
+- `auth_handler_private_key`
+- `auth_handler_public_key`
+- `auth_handler_cookie_secret`
+- `auth_handler_connections_json`
+
 **Generating production keys:**
 ```bash
 # RS256 key pair
@@ -231,6 +246,15 @@ After both workspaces have been applied:
 | Set provider config | Update `auth-handler-connections` to the JSON array of upstream OIDC connection configs |
 | Register callback URL | In Clerk OAuth app settings: `https://auth.{domain}/callback/clerk` |
 | Frontend env | Point `NEXT_PUBLIC_AUTH_ISSUER` to `https://auth.{domain}` |
+
+After the secret values are populated, update the matching
+`secrets_config_json.secrets.<key>.version_exists` values to `true` and apply
+the `secrets` workspace again. Only then apply the consuming `api` workspace.
+
+If the API apply fails with `local.secrets_with_versions is empty` or
+`One or more env_vars references point to a secret container with no current
+version`, the consuming workspace is ahead of the secret readiness marker. Fix
+the referenced secrets and re-apply `secrets` before re-running `api`.
 
 ---
 
