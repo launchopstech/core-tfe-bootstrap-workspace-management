@@ -331,14 +331,20 @@ Resources:
             Resource: "*"
 
           # ── Explicit deny: S3 data exfiltration ──────────────────────────────
-          # Prevents reading arbitrary object data while still allowing Terraform
-          # to manage client Lambda code buckets it owns.
+          # Prevents reading arbitrary object data from buckets Terraform does
+          # not own. Code buckets (*-api-code, *-lambda-code) are exempted so
+          # Terraform can manage aws_s3_object resources (HeadObject requires
+          # s3:GetObject — there is no separate s3:HeadObject IAM action).
           - Sid: DenyS3ObjectRead
             Effect: Deny
             Action:
               - s3:GetObject
               - s3:GetObjectVersion
-            Resource: "*"
+            NotResource:
+              - "arn:aws:s3:::*-api-code/*"
+              - "arn:aws:s3:::*-api-code-*/*"
+              - "arn:aws:s3:::*-lambda-code/*"
+              - "arn:aws:s3:::*-lambda-code-*/*"
 
           # Prevents making buckets or objects publicly accessible.
           - Sid: DenyS3AclChanges
