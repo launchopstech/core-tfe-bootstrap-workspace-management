@@ -72,6 +72,12 @@ variable "log_retention_days" {
   }
 }
 
+variable "force_destroy" {
+  description = "Allow the logs S3 bucket to be destroyed even when it contains objects. Set to true for dev/test environments to enable clean teardown cycles."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Tags to apply to all resources created by this module."
   type        = map(string)

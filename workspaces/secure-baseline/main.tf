@@ -38,5 +38,6 @@ module "secure_baseline" {
   enable_notifications   = var.enable_notifications
   security_alert_emails  = var.security_alert_emails
   log_retention_days     = var.log_retention_days
+  force_destroy          = var.force_destroy
   tags                   = var.tags
 }
