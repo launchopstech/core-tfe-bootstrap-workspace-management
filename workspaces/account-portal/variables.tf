@@ -19,6 +19,12 @@ variable "project_vcs_oauth_token_id" {
   type        = string
 }
 
+variable "project_vcs_branch" {
+  description = "VCS branch used for child deployer workspaces. Seeded by the control plane from the environment branch default unless explicitly overridden on the account."
+  type        = string
+  default     = "main"
+}
+
 variable "project_requests_json" {
   description = "JSON document consumed by the portal factory to create requested child deployer workspaces. Shape: {\"projects\": {\"vpc\": {\"enabled\": true, \"inputs\": {...}}, \"rds\": {\"enabled\": true, \"inputs\": {...}, \"depends_on\": [\"vpc\"]}}}."
   type        = string
