@@ -146,7 +146,7 @@ locals {
               }
               authorizer = {
                 seed                 = "seed_authorizer"
-                upload_seed_code     = false
+                upload_seed_code     = true
                 function_name_suffix = "api-authorizer"
                 handler              = "authorizer.handler"
                 runtime              = "nodejs22.x"
@@ -163,7 +163,7 @@ locals {
               }
               "auth-handler" = {
                 seed                 = "seed_auth_handler"
-                upload_seed_code     = false
+                upload_seed_code     = true
                 function_name_suffix = "auth-handler"
                 handler              = "auth-handler.handler"
                 runtime              = "nodejs22.x"
