@@ -25,6 +25,7 @@ locals {
         "secure-baseline",
         "vpc",
         "rds",
+        "dns",
         "secrets",
         "api",
       ]
@@ -54,6 +55,12 @@ locals {
           deletion_protection         = false
           enable_performance_insights = false
           enable_enhanced_monitoring  = false
+        }
+        dns = {
+          dns_config_json = {
+            zone_name = "mindrithm.ai"
+            comment   = "Public zone for Mindrithm production-facing custom domains"
+          }
         }
         secrets = {
           secrets_config_json = {
@@ -106,6 +113,16 @@ locals {
               }
               stage = {
                 name = "v1"
+              }
+              custom_domains = {
+                api = {
+                  domain_name = "api.mindrithm.ai"
+                  base_path   = ""
+                }
+                auth = {
+                  domain_name = "auth.mindrithm.ai"
+                  base_path   = ""
+                }
               }
               waf = {
                 enabled = false
