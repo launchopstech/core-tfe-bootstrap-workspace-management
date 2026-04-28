@@ -339,6 +339,7 @@ Goal: add a separate Secrets Manager blueprint for same-account runtime secret c
 - [ ] add `service_workspace_variables.secrets.secrets_config_json`
 - [ ] model `secrets_config_json` as logical secret keys mapped to metadata such as `name_suffix`, `description`, `recovery_window_in_days`, and tags
 - [ ] keep v1 metadata-only: Terraform creates secret containers but does not manage secret values
+- [ ] make secret readiness explicit with `version_exists` / `secrets_with_versions` so consumers can distinguish empty containers from usable runtime secrets
 - [ ] define generic `secret_refs` for consumers
 
 **Control plane:**
@@ -356,6 +357,12 @@ Goal: add a separate Secrets Manager blueprint for same-account runtime secret c
 - [ ] inject resolved secret ARNs into declared environment-variable names
 - [ ] grant `secretsmanager:GetSecretValue` only for referenced secrets
 - [ ] validate unknown secret keys and missing sibling outputs clearly
+- [ ] validate missing secret versions clearly and include the exact logical secret keys that need `version_exists = true`
+
+**Secret readiness automation:**
+- [ ] add a helper script or workflow that reads consumer `env_vars` / `secret_refs`, lists required logical secret keys, compares them with the `secrets_with_versions` output, and prints the exact `version_exists` updates needed
+- [ ] add a client-onboarding checklist step that runs the readiness helper before applying `api` or standalone `lambda`
+- [ ] consider a non-sensitive `required_secret_keys` output from consumer workspaces or the control plane so operators can see required secrets before the consumer apply fails
 
 **Security and defaults:**
 - [ ] use the secure-baseline KMS key as the default encryption key
@@ -370,6 +377,7 @@ Goal: add a separate Secrets Manager blueprint for same-account runtime secret c
 - [ ] validate `api` sibling secret consumption through `secret_refs`
 - [ ] validate standalone `lambda` sibling secret consumption through `secret_refs`
 - [ ] validate bad secret references fail clearly
+- [ ] validate missing secret versions report actionable key names instead of only reporting an empty `secrets_with_versions` set
 
 ## Phase 6C - IAM Blueprint Generalization
 

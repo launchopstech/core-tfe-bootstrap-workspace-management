@@ -259,6 +259,7 @@ Planned v1 defaults:
 - separate `secrets` blueprint
 - AWS Secrets Manager only
 - metadata-only management: Terraform creates secret containers and outputs, but not secret values
+- secret readiness is tracked explicitly with `version_exists` and exposed through `secrets_with_versions`
 - default ownership is `agency`
 - generic cross-service `secret_refs` contract
 - first-class sibling consumer integration for `api` and standalone `lambda`
@@ -275,6 +276,7 @@ Planned `secrets_config_json` shape:
       "name_suffix": "stripe-api-key",
       "description": "Stripe server-side API key",
       "recovery_window_in_days": 30,
+      "version_exists": false,
       "tags": {
         "rotation_owner": "app-team"
       }
@@ -294,10 +296,13 @@ Planned consumer-side `secret_refs` shape:
 Planned behavior:
 
 - the `secrets` workspace exposes `secret_arns` and `secret_names`
+- the `secrets` workspace exposes `secrets_with_versions`, containing logical keys that either have a Terraform-created initial version or have been populated out-of-band and marked with `version_exists = true`
 - consumer workspaces receive a sibling `secrets_workspace_name`
 - `api` and `lambda` resolve `secret_refs` to secret ARNs and inject those ARNs into the declared environment-variable names
 - consumer IAM should grant `secretsmanager:GetSecretValue` only for referenced secrets
 - unknown secret references should fail validation before deploy
+- missing secret versions should fail validation before deploy and report the exact logical keys that must be populated and marked ready
+- onboarding automation should include a readiness helper that compares consumer secret references with `secrets_with_versions` before applying consumer workspaces
 - CI/CD and automation identity access should be modeled through the sibling `iam` workspace rather than through `secrets`
 
 ### `service_artifact_sources`

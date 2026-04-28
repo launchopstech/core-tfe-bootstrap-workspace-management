@@ -61,32 +61,32 @@ locals {
               auth_handler_issuer = {
                 description             = "OIDC issuer URL for platform JWTs (AUTH_HANDLER_ISSUER)"
                 recovery_window_in_days = 7
-                version_exists          = false
+                version_exists          = true
               }
               auth_handler_audience = {
                 description             = "JWT audience for platform tokens (AUTH_HANDLER_AUDIENCE)"
                 recovery_window_in_days = 7
-                version_exists          = false
+                version_exists          = true
               }
               auth_handler_private_key = {
                 description             = "RS256 private key used by auth-handler to sign platform JWTs"
                 recovery_window_in_days = 7
-                version_exists          = false
+                version_exists          = true
               }
               auth_handler_public_key = {
                 description             = "RS256 public key used by the Lambda authorizer to verify platform JWTs"
                 recovery_window_in_days = 7
-                version_exists          = false
+                version_exists          = true
               }
               auth_handler_cookie_secret = {
                 description             = "AES cookie encryption secret for auth-handler browser sessions"
                 recovery_window_in_days = 7
-                version_exists          = false
+                version_exists          = true
               }
               auth_handler_connections_json = {
                 description             = "JSON array of upstream OIDC connection configs (AUTH_HANDLER_CONNECTIONS_JSON)"
                 recovery_window_in_days = 7
-                version_exists          = false
+                version_exists          = true
               }
               anthropic_api_key = {
                 description             = "Anthropic API key for forge-core-ai LLM calls"
