@@ -314,13 +314,17 @@ For `api`, the artifact source contract should provide:
 - `bucket`
 - `key_prefix`
 - `deployment_mode`
+- per-Lambda artifact keys, or a manifest object that maps Lambda keys to exact S3 object keys
+- optional S3 object versions for immutable, reproducible deploys
 
 Behavior:
 
 - Terraform for the API stack remains in this repo
 - API application code lives in a separate app repo
 - the app repo publishes versioned Lambda ZIP artifacts to S3
-- this repo deploys Lambda functions by artifact bucket, key, and object version
+- this repo deploys Lambda functions by artifact bucket, explicit key, and object version
+- Terraform must not discover the latest Lambda artifact by listing S3 at plan time; CI/CD should publish the artifact metadata that Terraform consumes
+- first deploys should fail during validation if a non-seed Lambda has no artifact key or manifest entry, rather than failing through an external data source or Lambda `NoSuchKey`
 
 Agency-run only in MVP:
 
