@@ -24,7 +24,7 @@ locals {
 
 resource "aws_s3_bucket" "logs" {
   bucket        = "${local.name_prefix}-logs-${local.account_id}"
-  force_destroy = false
+  force_destroy = var.force_destroy
 
   tags = merge(var.tags, {
     ManagedBy   = "terraform"

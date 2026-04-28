@@ -42,6 +42,7 @@ locals {
           enable_guardduty       = false
           enable_security_hub    = false
           enable_access_analyzer = false
+          force_destroy          = true
         }
         rds = {
           kms_key_arn                 = local.kms_key_arn
