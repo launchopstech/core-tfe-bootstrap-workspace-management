@@ -98,7 +98,7 @@ locals {
               anthropic_api_key = {
                 description             = "Anthropic API key for forge-core-ai LLM calls"
                 recovery_window_in_days = 7
-                version_exists          = false
+                version_exists          = true
               }
             }
           }

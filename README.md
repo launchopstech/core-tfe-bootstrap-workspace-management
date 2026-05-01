@@ -342,6 +342,10 @@ Recommended rollout for delegated DNS:
 - wait for delegation to propagate
 - apply `<client>-<env>-api` so ACM validation and the API Gateway custom domain can complete inside that delegated zone
 
+See [DNS and API Custom Domains](docs/runbooks/dns-api-custom-domains.md) for
+the detailed Route53 + GoDaddy runbook, including the difference between
+delegating a subdomain and moving an entire registered domain to Route53.
+
 Parent-zone delegation note:
 - if the parent zone is hosted in GoDaddy DNS, add an `NS` record for the delegated label there
 - example for `api.dev.mindrithm.app`: create the delegated Route53 zone `dev.mindrithm.app`, then add an `NS` record for host `dev` in the parent `mindrithm.app` zone that points to the 4 Route53 `name_servers`
