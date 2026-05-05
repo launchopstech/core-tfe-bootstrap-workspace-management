@@ -66,6 +66,7 @@ locals {
         iam = {
           iam_config_json = {
             oidc = {
+              provider_arn    = "arn:aws:iam::${local.account_id}:oidc-provider/token.actions.githubusercontent.com"
               issuer_url      = "https://token.actions.githubusercontent.com"
               client_id_list  = ["sts.amazonaws.com"]
               thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
