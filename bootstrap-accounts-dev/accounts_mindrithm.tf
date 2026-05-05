@@ -26,6 +26,7 @@ locals {
         "vpc",
         "rds",
         "dns",
+        "iam",
         "secrets",
         "api",
       ]
@@ -60,6 +61,47 @@ locals {
           dns_config_json = {
             zone_name = "mindrithm.ai"
             comment   = "Public zone for Mindrithm production-facing custom domains"
+          }
+        }
+        iam = {
+          iam_config_json = {
+            oidc = {
+              issuer_url      = "https://token.actions.githubusercontent.com"
+              client_id_list  = ["sts.amazonaws.com"]
+              thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+              roles = {
+                artifact_publisher = {
+                  role_name_suffix = "artifact-publisher"
+                  subject_claims = [
+                    "repo:launchopstech/core-tfe-bootstrap-workspace-management:*",
+                    "repo:bomatronix/forge-core:environment:development",
+                  ]
+                  inline_policy_json = {
+                    Version = "2012-10-17"
+                    Statement = [
+                      {
+                        Sid      = "ListArtifactBuckets"
+                        Effect   = "Allow"
+                        Action   = ["s3:ListBucket", "s3:GetBucketLocation"]
+                        Resource = ["arn:aws:s3:::mindrithm-dev-forge-api-code"]
+                      },
+                      {
+                        Sid      = "ManageArtifactObjects"
+                        Effect   = "Allow"
+                        Action   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+                        Resource = ["arn:aws:s3:::mindrithm-dev-forge-api-code/*"]
+                      },
+                      {
+                        Sid      = "UseArtifactKmsKey"
+                        Effect   = "Allow"
+                        Action   = ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey", "kms:DescribeKey"]
+                        Resource = [local.kms_key_arn]
+                      },
+                    ]
+                  }
+                }
+              }
+            }
           }
         }
         secrets = {
