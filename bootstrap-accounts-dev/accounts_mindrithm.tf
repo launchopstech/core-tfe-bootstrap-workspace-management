@@ -194,10 +194,10 @@ locals {
               "forge-core-api" = {
                 name                 = "core-api"
                 seed                 = "seed_handler"
-                upload_seed_code     = true
+                upload_seed_code     = false
                 function_name_suffix = "core-api"
-                handler              = "seed_handler.handler"
-                runtime              = "python3.12"
+                handler              = "api.handler"
+                runtime              = "nodejs22.x"
                 memory_mb            = 512
                 timeout_seconds      = 30
                 needs_vpc            = true
@@ -206,7 +206,7 @@ locals {
               }
               authorizer = {
                 seed                 = "seed_authorizer"
-                upload_seed_code     = true
+                upload_seed_code     = false
                 function_name_suffix = "api-authorizer"
                 handler              = "authorizer.handler"
                 runtime              = "nodejs22.x"
@@ -223,7 +223,7 @@ locals {
               }
               "auth-handler" = {
                 seed                 = "seed_auth_handler"
-                upload_seed_code     = true
+                upload_seed_code     = false
                 function_name_suffix = "auth-handler"
                 handler              = "auth-handler.handler"
                 runtime              = "nodejs22.x"
