@@ -114,6 +114,12 @@
                           "Effect": "Allow",
                           "Action": ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey", "kms:DescribeKey"],
                           "Resource": ["arn:aws:kms:us-east-1:889851937279:key/7a915c50-1807-469e-b15d-7b4d1e6a3ca7"]
+                        },
+                        {
+                          "Sid": "VerifyLambdaDeployment",
+                          "Effect": "Allow",
+                          "Action": ["lambda:GetFunctionConfiguration"],
+                          "Resource": ["arn:aws:lambda:us-east-1:889851937279:function:test-client-*"]
                         }
                       ]
                     }
