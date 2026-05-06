@@ -14,13 +14,20 @@ variable "environment" {
 }
 
 variable "authorizers" {
-  description = "Map of TOKEN authorizers. Key is the authorizer name."
+  description = "Map of REQUEST authorizers. Key is the authorizer name."
   type = map(object({
     lambda_invoke_arn              = string
     lambda_function_arn            = string
     lambda_function_name           = string
     identity_validation_expression = optional(string, "^Bearer [-_A-Za-z0-9.]+$")
     result_ttl_seconds             = optional(number, 0)
+    # identity_source controls which request attributes API Gateway requires before
+    # invoking the authorizer Lambda. Defaults to X-Forwarded-For (always present)
+    # so the authorizer is invoked for every request — including those without an
+    # Authorization header. The authorizer itself decides what is public vs protected.
+    # Set to "method.request.header.Authorization" to revert to the AWS default
+    # (API Gateway returns 401 for requests missing the header without invoking Lambda).
+    identity_source                = optional(string, "method.request.header.X-Forwarded-For")
   }))
   default = {}
 }

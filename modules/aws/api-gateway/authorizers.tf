@@ -7,6 +7,7 @@ resource "aws_api_gateway_authorizer" "this" {
   authorizer_uri         = each.value.lambda_invoke_arn
   authorizer_credentials = aws_iam_role.authorizer[each.key].arn
 
+  identity_source                  = each.value.identity_source
   authorizer_result_ttl_in_seconds = each.value.result_ttl_seconds
 }
 
