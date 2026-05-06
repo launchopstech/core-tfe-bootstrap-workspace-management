@@ -13,7 +13,7 @@ locals {
         )
       )
     }
-    if try(lambda_cfg.upload_seed_code, false)
+    if local.lambda_uses_seed_artifact[lambda_key]
   }
 }
 

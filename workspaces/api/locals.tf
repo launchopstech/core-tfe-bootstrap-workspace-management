@@ -22,6 +22,18 @@ locals {
   create_artifacts_bucket           = try(local.artifacts.create_bucket, false)
   custom_domains                    = try(local.gw.custom_domains, {})
 
+  # CI/CD writes artifacts.functions for lambdas backed by externally-built ZIPs.
+  # That list takes precedence over stale upload_seed_code flags.
+  externally_deployed_lambda_keys = toset([
+    for lambda_key in try(local.artifacts.functions, []) :
+    trimspace(lambda_key)
+    if trimspace(lambda_key) != ""
+  ])
+  lambda_uses_seed_artifact = {
+    for lambda_key, lambda_cfg in local.lambdas :
+    lambda_key => try(lambda_cfg.upload_seed_code, false) && !contains(local.externally_deployed_lambda_keys, lambda_key)
+  }
+
   lambda_secret_refs = {
     for lambda_key, lambda_cfg in local.lambdas : lambda_key => {
       for env_name, secret_key in try(lambda_cfg.env_vars, {}) :

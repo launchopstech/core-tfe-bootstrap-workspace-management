@@ -41,7 +41,7 @@ data "aws_region" "current" {}
 data "external" "latest_lambda_key" {
   for_each = {
     for k, v in local.lambdas : k => v
-    if !try(v.upload_seed_code, false)
+    if !local.lambda_uses_seed_artifact[k]
   }
 
   program = ["bash", "${path.module}/scripts/latest_s3_key.sh"]
@@ -51,6 +51,18 @@ data "external" "latest_lambda_key" {
     prefix   = "${local.resolved_artifacts_key_prefix}/${each.key}-"
     fallback = "${local.resolved_artifacts_key_prefix}/${each.key}-${local.resolved_artifacts_version}.zip"
   }
+
+  depends_on = [module.code_bucket]
+}
+
+data "aws_s3_object" "lambda_package" {
+  for_each = {
+    for k, v in local.lambdas : k => v
+    if !local.lambda_uses_seed_artifact[k]
+  }
+
+  bucket = local.create_artifacts_bucket ? module.code_bucket[0].bucket_id : local.resolved_artifacts_bucket
+  key    = data.external.latest_lambda_key[each.key].result.key
 
   depends_on = [module.code_bucket]
 }

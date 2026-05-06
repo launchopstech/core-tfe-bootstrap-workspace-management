@@ -12,8 +12,9 @@ module "lambda" {
   # Deployment package from S3
   create_package = false
   s3_existing_package = {
-    bucket = var.s3_bucket
-    key    = var.s3_key
+    bucket     = var.s3_bucket
+    key        = var.s3_key
+    version_id = var.s3_object_version
   }
 
   # Environment variables
