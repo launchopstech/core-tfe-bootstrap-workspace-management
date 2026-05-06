@@ -98,6 +98,12 @@ locals {
                         Action   = ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey", "kms:DescribeKey"]
                         Resource = [local.kms_key_arn]
                       },
+                      {
+                        Sid      = "VerifyLambdaDeployment"
+                        Effect   = "Allow"
+                        Action   = ["lambda:GetFunctionConfiguration"]
+                        Resource = ["arn:aws:lambda:${local.region}:${local.account_id}:function:${local.product}-*"]
+                      },
                     ]
                   }
                 }
