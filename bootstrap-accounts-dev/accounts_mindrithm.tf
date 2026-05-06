@@ -158,18 +158,18 @@ locals {
             gateway = {
               enabled = true
               cors = {
-                allowed_origins = ["https://mindrithm.ai"]
+                allowed_origins = ["https://development.mindrithm.ai"]
               }
               stage = {
                 name = "v1"
               }
               custom_domains = {
-                api = {
-                  domain_name = "api.mindrithm.ai"
+                primary = {
+                  domain_name = "api.dev.mindrithm.ai"
                   base_path   = ""
                 }
                 auth = {
-                  domain_name = "auth.mindrithm.ai"
+                  domain_name = "auth.dev.mindrithm.ai"
                   base_path   = ""
                 }
               }
