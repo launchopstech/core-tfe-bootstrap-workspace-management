@@ -29,6 +29,12 @@ variable "s3_key" {
   type        = string
 }
 
+variable "s3_object_version" {
+  description = "Optional S3 object version for the Lambda deployment package."
+  type        = string
+  default     = null
+}
+
 variable "handler" {
   description = "Lambda function handler."
   type        = string
