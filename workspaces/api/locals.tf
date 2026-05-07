@@ -81,7 +81,11 @@ locals {
   # IAM username for rds-db:connect. This must be an existing database role
   # that is allowed to authenticate through RDS IAM; we validate it when any
   # Lambda declares needs_db = true.
-  db_iam_username = trimspace(try(local.db_cfg.iam_username, ""))
+  db_iam_username        = trimspace(try(local.db_cfg.iam_username, ""))
+  migration_iam_username = trimspace(try(local.db_cfg.migration_iam_username, "migrator"))
+  lambda_db_iam_usernames = {
+    for k, v in local.lambdas : k => try(trimspace(v.db_iam_username), local.db_iam_username)
+  }
 }
 
 # ── Cross-workspace derived values (conditional) ────────────────────────────────
@@ -91,6 +95,7 @@ locals {
   private_subnet_ids    = local.needs_vpc ? nonsensitive(data.tfe_outputs.vpc[0].values.private_subnet_ids) : []
   db_identifier         = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_identifier) : null
   db_secret_arn         = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_secret_arn) : null
+  db_instance_endpoint  = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_instance_endpoint) : null
   rds_sg_id             = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.security_group_id) : null
   is_cluster            = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.enable_cluster) : false
   db_resource_id        = local.needs_rds ? nonsensitive(data.tfe_outputs.rds[0].values.db_resource_id) : null
@@ -150,8 +155,19 @@ locals {
       try(v.needs_db, false) ? {
         DB_PROXY_ENDPOINT = module.rds_proxy[0].proxy_endpoint
         DB_NAME           = local.db_name
-        DB_USERNAME       = local.db_iam_username
+        DB_USERNAME       = local.lambda_db_iam_usernames[k]
         DB_AUTH_MODE      = "iam"
+      } : {},
+      try(v.needs_db_admin, false) ? {
+        DB_ADMIN_HOST       = local.db_instance_endpoint
+        DB_ADMIN_SECRET_ARN = local.db_secret_arn
+        DB_ADMIN_USERNAME   = local.db_username
+        DB_APP_USERNAME     = local.db_iam_username
+        DB_MIGRATOR_USERNAME = (
+          local.lambda_db_iam_usernames[k] != ""
+          ? local.lambda_db_iam_usernames[k]
+          : local.migration_iam_username
+        )
       } : {},
       # Uploads env vars for lambdas that need S3 uploads access
       try(v.needs_uploads, false) ? {
@@ -168,5 +184,6 @@ locals {
     if try(v.needs_db, false) || try(v.needs_uploads, false) || length(try(local.lambda_secret_refs[k], {})) > 0
   }
 
-  db_lambda_keys = [for k, v in local.lambdas : k if try(v.needs_db, false)]
+  db_lambda_keys       = [for k, v in local.lambdas : k if try(v.needs_db, false)]
+  db_admin_lambda_keys = [for k, v in local.lambdas : k if try(v.needs_db_admin, false)]
 }

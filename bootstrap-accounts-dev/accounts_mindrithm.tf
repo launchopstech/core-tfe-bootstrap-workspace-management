@@ -112,6 +112,12 @@ locals {
                         Action   = ["lambda:GetFunctionConfiguration"]
                         Resource = ["arn:aws:lambda:${local.region}:${local.account_id}:function:${local.product}-*"]
                       },
+                      {
+                        Sid      = "InvokeMigrator"
+                        Effect   = "Allow"
+                        Action   = ["lambda:InvokeFunction"]
+                        Resource = ["arn:aws:lambda:${local.region}:${local.account_id}:function:${local.product}-core-migrator-${local.env}"]
+                      },
                     ]
                   }
                 }
@@ -218,6 +224,21 @@ locals {
                 needs_db             = true
                 needs_uploads        = false
               }
+              "forge-core-migrator" = {
+                name                 = "core-migrator"
+                seed                 = "seed_handler"
+                upload_seed_code     = false
+                function_name_suffix = "core-migrator"
+                handler              = "migrate.handler"
+                runtime              = "nodejs22.x"
+                memory_mb            = 256
+                timeout_seconds      = 120
+                needs_vpc            = true
+                needs_db             = true
+                needs_db_admin       = true
+                needs_uploads        = false
+                db_iam_username      = "migrator"
+              }
               authorizer = {
                 seed                 = "seed_authorizer"
                 upload_seed_code     = false
@@ -264,8 +285,9 @@ locals {
               version          = "v0.1.0"
             }
             database = {
-              proxy_enabled = true
-              iam_username  = "app"
+              proxy_enabled          = true
+              iam_username           = "app"
+              migration_iam_username = "migrator"
             }
             uploads = {
               enabled = false

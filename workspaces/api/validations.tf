@@ -31,9 +31,16 @@ resource "terraform_data" "api_config_validation" {
 
     precondition {
       condition = alltrue([
-        for k, v in local.lambdas : !try(v.needs_db, false) || local.db_iam_username != ""
+        for k, v in local.lambdas : !try(v.needs_db, false) || local.lambda_db_iam_usernames[k] != ""
       ])
-      error_message = "Lambda with needs_db = true requires database.iam_username in api_config_json. Set it to an existing IAM-authenticated database role."
+      error_message = "Lambda with needs_db = true requires database.iam_username or lambdas.<key>.db_iam_username in api_config_json. Set it to an existing IAM-authenticated database role."
+    }
+
+    precondition {
+      condition = alltrue([
+        for k, v in local.lambdas : !try(v.needs_db_admin, false) || try(v.needs_db, false)
+      ])
+      error_message = "Lambda with needs_db_admin = true must also set needs_db = true."
     }
 
     # VPC workspace name must be provided when VPC-attached resources exist
