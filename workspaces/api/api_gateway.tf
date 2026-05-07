@@ -5,7 +5,7 @@ module "api_gateway" {
 
   client_id   = var.client_id
   environment = var.environment
-api_name    = "${local.name_prefix}-api${local.name_suffix}"
+  api_name    = "${local.name_prefix}-api${local.name_suffix}"
 
   authorizers = {
     for ak, av in try(local.gw.authorizers, {}) : ak => {

@@ -7,12 +7,12 @@ data "aws_iam_policy_document" "lambda" {
     content {
       sid       = "RDSDBConnect"
       actions   = ["rds-db:connect"]
-      resources = ["arn:aws:rds-db:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:dbuser:${module.rds_proxy[0].proxy_resource_id}/${local.db_iam_username}"]
+      resources = ["arn:aws:rds-db:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:dbuser:${module.rds_proxy[0].proxy_resource_id}/${local.lambda_db_iam_usernames[each.key]}"]
     }
   }
 
   dynamic "statement" {
-    for_each = try(each.value.needs_db, false) || try(each.value.needs_uploads, false) || length(try(local.lambda_secret_refs[each.key], {})) > 0 ? [1] : []
+    for_each = try(each.value.needs_db_admin, false) || try(each.value.needs_uploads, false) || length(try(local.lambda_secret_refs[each.key], {})) > 0 ? [1] : []
     content {
       sid       = "KMSDecrypt"
       actions   = try(each.value.needs_uploads, false) ? ["kms:Decrypt", "kms:GenerateDataKey"] : ["kms:Decrypt"]
@@ -31,6 +31,15 @@ data "aws_iam_policy_document" "lambda" {
         for env_name, secret_key in local.lambda_secret_refs[each.key] :
         try(local.secret_arns_by_key[secret_key], "")
       ])
+    }
+  }
+
+  dynamic "statement" {
+    for_each = try(each.value.needs_db_admin, false) ? [1] : []
+    content {
+      sid       = "SecretsManagerReadRdsMasterSecret"
+      actions   = ["secretsmanager:GetSecretValue"]
+      resources = [local.db_secret_arn]
     }
   }
 
