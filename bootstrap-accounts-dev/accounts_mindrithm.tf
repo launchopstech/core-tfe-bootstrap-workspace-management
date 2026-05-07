@@ -56,6 +56,14 @@ locals {
           deletion_protection         = false
           enable_performance_insights = false
           enable_enhanced_monitoring  = false
+          ssm_config_json = {
+            enabled                  = true
+            instance_type            = "t4g.nano"
+            subnet_index             = 0
+            create_operator_role     = false
+            operator_principal_arns  = []
+            allow_master_secret_read = true
+          }
         }
         dns = {
           dns_config_json = {

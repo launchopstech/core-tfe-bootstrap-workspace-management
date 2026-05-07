@@ -32,6 +32,7 @@ data "tfe_outputs" "vpc" {
 locals {
   vpc_id                     = nonsensitive(data.tfe_outputs.vpc.values.vpc_id)
   database_subnet_group_name = nonsensitive(data.tfe_outputs.vpc.values.database_subnet_group_name)
+  private_subnet_ids         = nonsensitive(data.tfe_outputs.vpc.values.private_subnet_ids)
   private_subnet_cidrs       = nonsensitive(data.tfe_outputs.vpc.values.private_subnet_cidrs)
 }
 

@@ -27,7 +27,7 @@ variable "authorizers" {
     # Authorization header. The authorizer itself decides what is public vs protected.
     # Set to "method.request.header.Authorization" to revert to the AWS default
     # (API Gateway returns 401 for requests missing the header without invoking Lambda).
-    identity_source                = optional(string, "method.request.header.X-Forwarded-For")
+    identity_source = optional(string, "method.request.header.X-Forwarded-For")
   }))
   default = {}
 }
