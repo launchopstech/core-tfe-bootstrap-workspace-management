@@ -61,6 +61,14 @@ locals {
           dns_config_json = {
             zone_name = "mindrithm.ai"
             comment   = "Public zone for Mindrithm production-facing custom domains"
+            records = {
+              vercel_development = {
+                name    = "development"
+                type    = "CNAME"
+                ttl     = 300
+                records = ["f6dfff9bd87a6cd9.vercel-dns-017.com"]
+              }
+            }
           }
         }
         iam = {
