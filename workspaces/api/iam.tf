@@ -49,9 +49,12 @@ data "aws_iam_policy_document" "lambda" {
   dynamic "statement" {
     for_each = try(each.value.needs_db_admin, false) ? [1] : []
     content {
-      sid       = "SecretsManagerReadRdsMasterSecret"
-      actions   = ["secretsmanager:GetSecretValue"]
-      resources = [local.db_secret_arn]
+      sid     = "SecretsManagerReadRdsMasterSecret"
+      actions = ["secretsmanager:GetSecretValue"]
+      resources = compact([
+        local.db_secret_arn,
+        local.proxy_enabled ? aws_secretsmanager_secret.db_app_user[0].arn : "",
+      ])
     }
   }
 

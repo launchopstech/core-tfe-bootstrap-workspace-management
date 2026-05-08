@@ -169,6 +169,7 @@ locals {
           ? local.lambda_db_iam_usernames[k]
           : local.migration_iam_username
         )
+        DB_APP_USER_SECRET_ARN = local.proxy_enabled ? aws_secretsmanager_secret.db_app_user[0].arn : ""
       } : {},
       # Uploads env vars for lambdas that need S3 uploads access
       try(v.needs_uploads, false) ? {
@@ -182,7 +183,7 @@ locals {
 locals {
   lambdas_with_policies = {
     for k, v in local.lambdas : k => v
-    if try(v.needs_db, false) || try(v.needs_uploads, false) || length(try(local.lambda_secret_refs[k], {})) > 0
+    if try(v.needs_db, false) || try(v.needs_db_admin, false) || try(v.needs_uploads, false) || length(try(local.lambda_secret_refs[k], {})) > 0
   }
 
   db_lambda_keys       = [for k, v in local.lambdas : k if try(v.needs_db, false)]

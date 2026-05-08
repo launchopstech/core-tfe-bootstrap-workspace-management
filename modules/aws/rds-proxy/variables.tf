@@ -73,6 +73,12 @@ variable "port" {
   default     = 5432
 }
 
+variable "additional_auth_secret_arns" {
+  description = "Additional Secrets Manager secret ARNs for per-user proxy auth (e.g., app user)."
+  type        = list(string)
+  default     = []
+}
+
 variable "tags" {
   description = "Additional tags to apply to resources."
   type        = map(string)
