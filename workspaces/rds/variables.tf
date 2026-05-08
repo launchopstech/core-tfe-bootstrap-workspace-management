@@ -7,6 +7,11 @@ variable "vpc_workspace_name" {
   description = "Name of the VPC workspace in the same project. Used to read VPC outputs at runtime."
   type        = string
 }
+variable "ssm_config_json" {
+  description = "Optional SSM bridge config for private operational access."
+  type        = any
+  default     = {}
+}
 variable "hcp_terraform_organization" {
   description = "HCP Terraform organization."
   type        = string
