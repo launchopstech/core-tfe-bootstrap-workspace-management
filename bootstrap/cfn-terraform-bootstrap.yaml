@@ -295,6 +295,8 @@ Resources:
 
           # ── Explicit deny: secret and parameter reads ─────────────────────────
           # Terraform manages secret/parameter lifecycle — it should not read values.
+          # Exception: secrets Terraform itself creates for RDS Proxy auth (*-db-app-user*)
+          # must be readable so the provider can verify the version after creation.
           - Sid: DenySecretAndParameterRead
             Effect: Deny
             Action:
@@ -305,6 +307,10 @@ Resources:
               - ssm:GetParametersByPath
               - ssm:GetParameterHistory
             Resource: "*"
+            Condition:
+              ArnNotLike:
+                secretsmanager:SecretId:
+                  - !Sub "arn:aws:secretsmanager:*:${AWS::AccountId}:secret:*-db-app-user*"
 
           # ── Explicit deny: KMS key policy and deletion ────────────────────────
           # Prevents rewriting KMS key policies to grant external access.
