@@ -15,13 +15,24 @@ module "rds_proxy" {
   vpc_security_group_ids = [aws_security_group.proxy.id]
 
   # Auth — Secrets Manager + IAM
-  auth = {
-    default = {
-      auth_scheme = "SECRETS"
-      iam_auth    = "REQUIRED"
-      secret_arn  = var.db_secret_arn
+  # The community module auto-grants GetSecretValue on every ARN in this map.
+  auth = merge(
+    {
+      "master" = {
+        auth_scheme = "SECRETS"
+        iam_auth    = "REQUIRED"
+        secret_arn  = var.db_secret_arn
+      }
+    },
+    {
+      for idx, arn in var.additional_auth_secret_arns :
+      "user-${idx}" => {
+        auth_scheme = "SECRETS"
+        iam_auth    = "REQUIRED"
+        secret_arn  = arn
+      }
     }
-  }
+  )
 
   # IAM role — let community module create it
   create_iam_role = true
