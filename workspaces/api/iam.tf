@@ -12,6 +12,18 @@ data "aws_iam_policy_document" "lambda" {
   }
 
   dynamic "statement" {
+    for_each = try(each.value.needs_db_admin, false) ? [1] : []
+    content {
+      sid     = "RDSDBConnectDirectDatabase"
+      actions = ["rds-db:connect"]
+      resources = compact([
+        local.lambda_db_iam_usernames[each.key] != "" ? "arn:aws:rds-db:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:dbuser:${local.db_resource_id}/${local.lambda_db_iam_usernames[each.key]}" : "",
+        try(local.db_username, "") != "" ? "arn:aws:rds-db:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:dbuser:${local.db_resource_id}/${local.db_username}" : "",
+      ])
+    }
+  }
+
+  dynamic "statement" {
     for_each = try(each.value.needs_db_admin, false) || try(each.value.needs_uploads, false) || length(try(local.lambda_secret_refs[each.key], {})) > 0 ? [1] : []
     content {
       sid       = "KMSDecrypt"

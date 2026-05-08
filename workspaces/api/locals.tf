@@ -163,6 +163,7 @@ locals {
         DB_ADMIN_SECRET_ARN = local.db_secret_arn
         DB_ADMIN_USERNAME   = local.db_username
         DB_APP_USERNAME     = local.db_iam_username
+        DB_MIGRATOR_HOST    = local.db_instance_endpoint
         DB_MIGRATOR_USERNAME = (
           local.lambda_db_iam_usernames[k] != ""
           ? local.lambda_db_iam_usernames[k]
