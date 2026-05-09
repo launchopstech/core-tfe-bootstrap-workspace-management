@@ -231,6 +231,9 @@ locals {
                 needs_vpc            = true
                 needs_db             = true
                 needs_uploads        = false
+                env_vars = {
+                  ANTHROPIC_API_KEY = "anthropic_api_key"
+                }
               }
               "forge-core-migrator" = {
                 name                 = "core-migrator"
