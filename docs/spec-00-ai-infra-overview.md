@@ -280,7 +280,7 @@ These are explicitly deferred and will become separate spec files:
 
 | Future spec | What it covers |
 |---|---|
-| Fine-tuning pipeline | SageMaker training jobs, LoRA adapter management, model registry, training pipeline via Step Functions |
+| [spec-11: Fine-tuning pipeline](./spec-11-fine-tuning.md) | SageMaker training jobs, LoRA adapter management, model registry, training pipeline via Step Functions. **Prereq:** spec-05 deployed + base RAG validated. |
 | Bedrock AgentCore evaluation | Comparison vs LiteLLM proxy — managed runtime replacing ai-gateway + agent-state + ai-obs |
 | Multi-region AI | Global DynamoDB tables, Bedrock cross-region inference profiles, multi-region ECS |
 | Bedrock Flows | Visual workflow builder for no-code agent orchestration |
@@ -303,3 +303,4 @@ These are explicitly deferred and will become separate spec files:
 - [spec-08-ai-cache.md](./spec-08-ai-cache.md)
 - [spec-09-ecs.md](./spec-09-ecs.md)
 - [spec-10-ai-obs.md](./spec-10-ai-obs.md)
+- [spec-11-fine-tuning.md](./spec-11-fine-tuning.md) — Post-MVP: LoRA/QLoRA fine-tuning pipeline (SageMaker + Step Functions)
