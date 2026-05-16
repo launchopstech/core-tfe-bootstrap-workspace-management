@@ -44,6 +44,18 @@ No Terraform change.
 **Per-client cluster**: One ECS cluster per client environment. Not a shared cluster.
 Provides network isolation and IAM separation between clients.
 
+**EFS persistent storage**: ECS Fargate tasks mount an EFS volume for in-flight agent state
+(local variables mid-loop that have not yet been committed to DynamoDB). If a container is
+recycled before completing a DynamoDB write, the next container reads from EFS as a write-ahead
+log and reattempts the commit. EFS is the transient write-ahead layer; DynamoDB (spec-03) is
+the durable ledger. Each ECS service gets a dedicated EFS access point.
+
+**Security group separation**: The VPC contains both reasoning ECS tasks (this spec) and
+sandbox Lambda functions (spec-12). These must use separate security groups with different
+egress rules. ECS reasoning tasks need egress to Bedrock (via VPC endpoint), DynamoDB, SQS,
+and the ai-gateway endpoint. Sandbox Lambda functions have deny-all or explicit-only egress
+and must not share a security group with reasoning tasks.
+
 ---
 
 ## `accounts.tf.json` Contract

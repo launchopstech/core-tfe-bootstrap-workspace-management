@@ -2,17 +2,32 @@
 
 **Status:** `[ ] not started`
 **Phase:** Wave 2 — Knowledge Layer
-**Depends on:** `vpc`, `rds` (pgvector backend), `spec-01-bedrock` (bedrock-kb backend), `spec-05-ai-storage` (knowledge_docs bucket for bedrock-kb), `iam`
+**Default depends on (pgvector):** `vpc`, `rds`, `iam`
+
+**Backend dependency map:**
+| Backend | Requires |
+|---------|----------|
+| `pgvector` (default) | `vpc`, `rds`, `iam` |
+| `opensearch-serverless` | `vpc`, `iam` |
+| `bedrock-kb` | `spec-01-bedrock`, `spec-05-ai-storage`, `iam` |
 **Blocks:** RAG pipeline in any AI framework
 **Repo(s):** core-tfe-bootstrap-workspace-management
 
 ---
 
+## Business Rule
+
+The platform's knowledge retrieval interface must be backend-agnostic so that clients can
+scale from relational to dedicated vector infrastructure without changing AI framework code.
+
+---
+
 ## Goal
 
-Provision a vector database for RAG (Retrieval-Augmented Generation) workloads. Three backends
-are supported — selected per client via a single config field. All backends expose the same
-Terraform outputs so AI frameworks connect identically regardless of backend.
+Provision vector storage for RAG (Retrieval-Augmented Generation) workloads. Supports three
+backends — selected per client via config. Clients may run pgvector and OpenSearch simultaneously
+for different query patterns. All backends expose the same Terraform outputs so AI frameworks
+connect identically regardless of backend.
 
 ---
 
@@ -21,28 +36,59 @@ Terraform outputs so AI frameworks connect identically regardless of backend.
 RAG enables AI agents to answer questions from a client's knowledge base without fine-tuning.
 Documents are chunked → embedded → stored in a vector database → retrieved at query time.
 
-### Backend Selection Guide
+### Dual-Backend Model
 
-| Backend | Best for | Cost | Control |
-|---|---|---|---|
-| `pgvector` | MVP clients, <5M vectors, single-tenant | +$0 (reuses RDS) | Full |
-| `opensearch-serverless` | Multi-tenant, >5M vectors, semantic search | ~$700/month base | High |
-| `bedrock-kb` | Fastest time-to-RAG, managed pipeline | $0.10-0.30/document + queries | Low |
+pgvector and OpenSearch Serverless serve different query patterns and may be deployed
+simultaneously for clients that need both:
 
-**Start with `pgvector`.** The transition path is:
+| Backend | Best for | Run with pgvector? | Cost |
+|---------|----------|-------------------|------|
+| `pgvector` | Filtered relational+vector ("Find invoices from Company X about server maintenance") | — | +$0 (reuses RDS) |
+| `opensearch-serverless` | Unstructured memory, broad KB lookups, high-concurrency writes | Yes, alongside pgvector | ~$700/month |
+| `bedrock-kb` | Fully managed ingestion for non-technical clients | No (replaces pgvector) | $0.10-0.30/document |
+
+**Start with `pgvector` alone.** Add OpenSearch when you need broad unstructured KB search
+at scale or concurrent agent writes exceed Aurora connection limits. Bedrock KB is a
+third path — fully managed, but lower control.
+
 ```
-pgvector (MVP) → opensearch-serverless (scale) → bedrock-kb (managed, for non-technical clients)
+pgvector alone (MVP)
+  → pgvector + opensearch-serverless (scale: both active simultaneously)
+  → bedrock-kb (fully managed, replaces both for non-technical clients)
 ```
 
-### Framework-Agnostic Contract
+### Tenant Index Isolation
 
-All backends produce the same Terraform outputs:
+Cross-tenant data contamination must be structurally impossible, not just IAM-controlled:
+
+- **pgvector**: Each tenant uses a separate schema (`vectors_<tenant_id>`) or a `tenant_id` column
+  enforced via Row Level Security (RLS). The default schema uses a `tenant_id` column with
+  an RLS policy so a connection authenticated as tenant A cannot read tenant B's rows.
+- **OpenSearch Serverless**: Each tenant uses a separate index
+  (`<client_id>-<env>-<tenant_id>-knowledge`). Cross-tenant query is prevented at the
+  access policy level (principal scoped to tenant-specific index patterns).
+
+This is a required constraint, not an optional configuration.
+
+### Memory Lifecycle
+
+| Memory type | Storage location | Lifecycle |
+|-------------|-----------------|-----------|
+| Short-term context (sliding window tokens) | Compute state (ECS/Lambda working memory) | Discarded when container terminates |
+| Mid-run execution state | EFS write-ahead (spec-09) → DynamoDB (spec-03) | 30-day TTL via spec-03 |
+| Long-term episodic memory (summaries, facts) | DynamoDB memory table (spec-03) | 90-day TTL via spec-03 |
+| Knowledge base (documents, FAQs) | Vector store (this spec) | Client-controlled TTL or explicit delete |
+
+spec-06 handles the knowledge base tier only. Session and episodic memory are in spec-03.
+
+### Framework-Agnostic Output Contract
+
+All active backends produce the same Terraform outputs:
 - `vector_endpoint` — connection string or API URL
 - `collection_id` — identifier for the vector collection
 - `embedding_model_id` — model used to generate embeddings (must match query-time model)
 
-The AI framework uses these outputs to connect its retriever. Changing the backend = change
-`backend` in config + re-apply + update framework retriever config. Zero framework code change.
+Changing the backend = update config + re-apply. Zero framework code change.
 
 ---
 
@@ -51,9 +97,10 @@ The AI framework uses these outputs to connect its retriever. Changing the backe
 ```json
 "vector-store": {
   "vector_store_config_json": {
-    "backend": "pgvector",
+    "backends": ["pgvector"],
     "pgvector": {
       "schema_name": "vectors",
+      "tenant_isolation": "rls",
       "embedding_dimensions": 1536,
       "index_type": "hnsw",
       "index_m": 16,
@@ -64,6 +111,7 @@ The AI framework uses these outputs to connect its retriever. Changing the backe
       "collection_name_suffix": "knowledge",
       "type": "VECTORSEARCH",
       "standby_replicas": false,
+      "tenant_isolation": "per-index",
       "embedding_dimensions": 1536,
       "embedding_model": "amazon.titan-embed-text-v2:0"
     },
@@ -79,8 +127,14 @@ The AI framework uses these outputs to connect its retriever. Changing the backe
 }
 ```
 
-**`backend`**: One of `"pgvector"`, `"opensearch-serverless"`, `"bedrock-kb"`.
-Only the config block matching the selected backend is used.
+**`backends`**: Array of active backends. Valid values: `"pgvector"`, `"opensearch-serverless"`, `"bedrock-kb"`.
+- `["pgvector"]` — pgvector only (default, MVP)
+- `["pgvector", "opensearch-serverless"]` — both active simultaneously (scale)
+- `["bedrock-kb"]` — fully managed (replaces pgvector)
+
+**`tenant_isolation`**:
+- pgvector: `"rls"` (Row Level Security per tenant) or `"schema"` (separate schema per tenant)
+- opensearch: `"per-index"` (separate index per tenant) — required, no single-index option
 
 ---
 

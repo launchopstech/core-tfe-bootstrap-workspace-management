@@ -3,16 +3,23 @@
 **Status:** `[ ] not started`
 **Phase:** Wave 1 — Serverless AI Foundations
 **Depends on:** `iam`
-**Blocks:** `spec-09-ecs` (ECS task roles need table ARNs to scope DynamoDB access)
+**Blocks:** `spec-09-ecs` (ECS task roles need table ARNs to scope DynamoDB access), `spec-15-dynamic-iam` (base execution role scoped to these table ARNs)
 **Repo(s):** core-tfe-bootstrap-workspace-management
+
+---
+
+## Business Rule
+
+Agent execution state must persist durably so that agents resume at their last checkpoint
+rather than restarting from scratch when compute is recycled, rate-limited, or restarted.
 
 ---
 
 ## Goal
 
-Provision durable, serverless storage for agent conversation state:
-- **Checkpoints table**: Saves agent execution state mid-run (LangGraph nodes, PydanticAI steps)
-- **Memory table**: Stores cross-session memory (facts, preferences, conversation summaries)
+Provision durable, serverless storage for agent execution state:
+- **Checkpoints table**: Saves agent execution snapshots mid-run (current step, tool outputs, variable context)
+- **Memory table**: Stores cross-session knowledge (facts, preferences, conversation summaries)
 
 Both tables use DynamoDB PAY_PER_REQUEST billing — $0 at zero traffic.
 Both are framework-agnostic: any AI framework implements its own DynamoDB adapter.
@@ -36,9 +43,55 @@ they left off, even if the Lambda cold-started or the ECS task was replaced.
 read its own tenant's data by construction of the key, not just by IAM policy.
 
 **Framework-agnostic**: This blueprint creates tables and outputs their names and ARNs. The AI
-framework (LangGraph, PydanticAI, custom) is responsible for implementing a DynamoDB adapter.
-LangGraph has a built-in `DynamoDBSaver`; other frameworks write a thin adapter using the table
-name from the environment variable.
+framework is responsible for implementing a DynamoDB adapter using the table name from an
+environment variable. The infrastructure contract is the table name and key schema — not the
+framework library used to access it.
+
+### State Ledger Model
+
+The checkpoints table is a **state ledger**, not just a snapshot store. Each item captures:
+- `current_step` — step number in the execution graph
+- `tool_outputs` — results from all tool calls completed so far
+- `variable_context` — agent working memory (inputs, intermediate values)
+- `decision_history` — list of decisions made and branches taken
+- `execution_id` — unique ID for this execution run (used for idempotency)
+
+This structure allows any newly-spawned compute instance to hydrate the agent's exact state
+and resume from the last committed step.
+
+### Idempotency Pattern
+
+SQS delivers messages at-least-once. Without idempotency protection, a retried SQS message
+could cause an agent to execute the same tool twice. The DynamoDB write pattern must enforce:
+
+```
+Write condition: attribute_not_exists(execution_id) OR step_number < :new_step_number
+```
+
+Required fields on every checkpoint write:
+- `execution_id` (string) — unique per agent invocation (UUID generated at task start)
+- `step_number` (number) — monotonically increasing per execution graph step
+
+If a write fails the condition, the step was already committed — the retry is a duplicate.
+
+### Optimistic Locking
+
+Concurrent sub-agents (parallel tool calls) must not overwrite each other's state. Implement
+optimistic locking via a `version` attribute:
+
+```
+UpdateExpression: SET version = version + 1, step_data = :new_data
+ConditionExpression: version = :expected_version
+```
+
+If the condition fails, another sub-agent updated the record — the caller must re-read and retry.
+
+### EFS Write-Ahead (spec-09 cross-reference)
+
+ECS Fargate containers (spec-09) mount an EFS volume for in-flight agent state (local
+variables mid-loop that have not yet been committed to DynamoDB). If a container is recycled
+before the DynamoDB write completes, the next container reads from EFS as the write-ahead log
+and reattempts the commit. EFS is transient; DynamoDB is the durable ledger.
 
 ---
 

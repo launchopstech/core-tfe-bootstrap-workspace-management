@@ -41,7 +41,7 @@ This ADR introduces 10 new blueprints extending the existing catalog, designed t
 
 ## Decision
 
-Add 10 new blueprints to the agency service catalog, deployable in 4 execution waves:
+Add 15 new blueprints to the agency service catalog, deployable in 4 execution waves:
 
 | Blueprint | Service key | Wave | Cost at zero traffic |
 |---|---|---|---|
@@ -49,12 +49,17 @@ Add 10 new blueprints to the agency service catalog, deployable in 4 execution w
 | Agent state (DynamoDB) | `agent-state` | 1 | ~$0 |
 | Async queues (SQS) | `ai-queue` | 1 | ~$0 |
 | AI storage (S3) | `ai-storage` | 1 | ~$0 |
+| Dynamic IAM (STS blast radius) | `dynamic-iam` | 1 | ~$0 |
 | AI gateway (LiteLLM Lambda) | `ai-gateway` | 2 | ~$0 |
 | Vector store | `vector-store` | 2 | ~$0 (pgvector) |
 | Container registry (ECR) | `ecr` | 2 | ~$0.10/GB/month |
+| EventBridge event routing | `eventbridge` | 2 | ~$1/million events |
+| Real-time streaming (WebSocket) | `realtime` | 2 | ~$1/million messages |
 | Response cache (Redis) | `ai-cache` | 3 | ~$0 (serverless) |
 | ECS Fargate runtime | `ecs` | 3 | ~$30/service/month |
+| Secure code sandbox (Lambda) | `sandbox-lambda` | 3 | ~$0 |
 | AI observability | `ai-obs` | 4 | ~$1/month |
+| Fine-tuning pipeline | `fine-tuning` | post-MVP | variable |
 
 ---
 
@@ -125,20 +130,27 @@ Wave 0 — Foundation (existing, must be applied first)
                 ├── iam
                 └── secrets
 
-Wave 1 — Serverless AI Foundations (parallel within wave)
-  spec-01: bedrock      requires: vpc (VPC endpoint), iam
-  spec-03: agent-state  requires: iam only
-  spec-04: ai-queue     requires: iam only
-  spec-05: ai-storage   requires: iam, secure-baseline (KMS key)
+Wave 1 — Serverless AI Foundations + Security (parallel within wave)
+  spec-01: bedrock        requires: vpc (VPC endpoint), iam
+  spec-03: agent-state    requires: iam only
+  spec-04: ai-queue       requires: iam only
+  spec-05: ai-storage     requires: iam, secure-baseline (KMS key)
+  spec-15: dynamic-iam    requires: iam, spec-03 (table ARNs), spec-04 (queue ARNs)
 
-Wave 2 — Model Access + Knowledge (parallel within wave)
-  spec-02: ai-gateway   requires: spec-01 (bedrock), secrets, iam
-  spec-06: vector-store requires: vpc + rds (pgvector) OR vpc (opensearch) OR bedrock (kb)
-  spec-07: ecr          requires: iam
+Wave 2 — Model Access + Knowledge + Event Mesh (parallel within wave)
+  spec-02: ai-gateway    requires: spec-01 (bedrock), secrets, iam
+  spec-06: vector-store  backend dependency map:
+                           pgvector (default) → vpc, rds, iam
+                           opensearch         → vpc, iam
+                           bedrock-kb         → spec-01 (bedrock), spec-05 (ai-storage), iam
+  spec-07: ecr           requires: iam
+  spec-13: eventbridge   requires: iam, spec-04 (ai-queue target ARNs)
+  spec-14: realtime      requires: vpc, iam, spec-13 (eventbridge), spec-03 (agent-state)
 
-Wave 3 — Caching + Scale Compute (parallel within wave)
-  spec-08: ai-cache     requires: vpc, secrets
-  spec-09: ecs          requires: vpc, spec-07 (ecr), secrets, iam, spec-01 (bedrock)
+Wave 3 — Caching + Scale Compute + Sandboxing (parallel within wave)
+  spec-08: ai-cache        requires: vpc, secrets
+  spec-09: ecs             requires: vpc, spec-07 (ecr), secrets, iam, spec-01 (bedrock)
+  spec-12: sandbox-lambda  requires: vpc, iam, spec-15 (dynamic-iam permissions boundary)
 
 Wave 4 — Observability (after all prior waves)
   spec-10: ai-obs       requires: iam, all prior blueprints deployed
@@ -166,16 +178,25 @@ dependency resolution happens in HCP Terraform workspace dependency chains.
   "agent-state",
   "ai-queue",
   "ai-storage",
+  "dynamic-iam",
   "ai-gateway",
   "vector-store",
   "ecr",
+  "eventbridge",
+  "realtime",
   "ai-cache",
   "ecs",
+  "sandbox-lambda",
   "ai-obs"
 ]
 ```
 
-Clients can opt into any subset. `ai-gateway` requires `bedrock`. `ecs` requires `ecr`.
+Clients can opt into any subset. Hard dependencies:
+- `ai-gateway` requires `bedrock`
+- `ecs` requires `ecr`
+- `sandbox-lambda` requires `dynamic-iam` (Permissions Boundary)
+- `realtime` requires `eventbridge` (HITL event source)
+- `dynamic-iam` requires `agent-state` + `ai-queue` (resource ARNs for base role scoping)
 All other AI blueprints are independently deployable after Wave 0.
 
 ---
@@ -190,13 +211,19 @@ generic AWS primitives:
 | `bedrock.bedrock_role_arn` | Any AWS SDK caller (boto3, bedrock-runtime client) |
 | `bedrock.guardrail_ids` | Any Bedrock API caller |
 | `ai_gateway.endpoint_url` | LangGraph, PydanticAI, AutoGen — any OpenAI-compat API client |
-| `agent_state.checkpoints_table_name` | LangGraph checkpointer, PydanticAI state, custom adapters |
-| `agent_state.memory_table_name` | LangMem, custom memory implementations |
+| `agent_state.checkpoints_table_name` | Any checkpointer writing execution snapshots |
+| `agent_state.memory_table_name` | Any memory implementation writing cross-session facts |
 | `ai_queue.tasks_queue_url` | Any async worker polling SQS |
 | `ai_queue.hitl_queue_url` | Any HITL gate implementation |
-| `vector_store.endpoint` | LangChain retriever, LlamaIndex, custom RAG |
+| `vector_store.endpoint` | Any retriever performing vector similarity search |
 | `ecr.repository_urls` | Docker push from CI; Docker pull by ECS tasks |
 | `ai_cache.endpoint` | Any Redis client (semantic cache, session cache) |
+| `dynamic_iam.base_execution_role_arn` | ECS task role, Lambda execution role |
+| `dynamic_iam.tool_role_arns` | Reasoning loop (STS AssumeRole per tool call) |
+| `dynamic_iam.permissions_boundary_arn` | All agent execution roles (blast radius control) |
+| `eventbridge.event_bus_name` | Any service publishing agent lifecycle events |
+| `realtime.websocket_endpoint` | Frontend application WebSocket connection |
+| `sandbox_lambda.sandbox_function_arns` | Reasoning loop (async tool execution invoke) |
 
 **The AI framework (LangGraph, PydanticAI, etc.) lives inside the Docker image stored in ECR.**
 The Terraform blueprints provision the runtime environment, not the framework.

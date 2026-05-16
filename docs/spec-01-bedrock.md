@@ -28,15 +28,23 @@ a single API. The `bedrock` blueprint manages the AWS-level access layer — IAM
 network routing, and safety controls. It does not care which AI framework calls it.
 
 Key decisions:
-- **VPC endpoint required**: All Bedrock calls route privately. No model invocation traffic
-  leaves the client VPC. This is critical for compliance (HIPAA, SOC2) clients.
-- **Guardrails per agent type**: Different agent roles (customer-facing, internal, admin) get
-  different content policies. Guardrails are named by use case, not by model.
-- **Invocation logging**: Model input/output logging is configurable. Default: log metadata
-  (model ID, token counts, latency) but NOT input/output content. Clients with audit requirements
-  can enable full content logging.
+- **Private model invocation (business rule)**: All Bedrock calls must route privately. No model
+  invocation traffic leaves the client VPC. VPC interface endpoint is the mechanism; the rule
+  is "private by default." Critical for compliance (HIPAA, SOC2) clients.
+- **Guardrails as infrastructure-level proxy**: Guardrails intercept every model request and
+  response before the application layer sees them. They block prompt injection attempts, mask PII,
+  and filter toxic outputs. This is an infrastructure control, not an application control —
+  the application cannot bypass it. Guardrails are named by agent role (customer-facing, internal,
+  admin), not by model.
+- **Invocation logging with KMS encryption**: Model input/output logging is configurable. Default:
+  log metadata only (model ID, token counts, latency) but NOT content. When content logging is
+  enabled, logs are written to S3 and must be encrypted with the client's customer-managed KMS
+  key from `secure-baseline`. Using AWS-managed keys is not sufficient for compliance clients.
 - **Inference profiles**: Cross-region profiles (e.g. `us.anthropic.claude-3-5-sonnet-*`)
   provide automatic failover and capacity benefits. Use these over direct model IDs.
+- **Throttling alerts**: Bedrock enforces per-account RPM and TPM limits. Agents hitting these
+  limits fail silently without alerting. A CloudWatch alarm on `ThrottledRequests` must be
+  configured to alert before agents start failing at scale.
 
 ---
 

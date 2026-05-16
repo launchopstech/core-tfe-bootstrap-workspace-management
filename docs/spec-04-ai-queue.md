@@ -49,7 +49,20 @@ Agent encounters decision requiring human approval
 - `ai-hitl` is FIFO — ordered, exactly-once, critical for audit trail
 
 **Dead-letter queues**: Every queue has a DLQ. Failed tasks go here after N receive attempts.
-The DLQ retention is 14 days — long enough to investigate and replay.
+The DLQ retention is 14 days — long enough to investigate and replay. A CloudWatch alarm on
+`ApproximateNumberOfMessagesVisible > 0` on any DLQ must be configured — a non-empty DLQ
+indicates a stuck or looping agent and requires immediate investigation.
+
+**EventBridge boundary**: SQS handles task queuing (at-most-once-processed, backpressure,
+delivery guarantees). EventBridge (spec-13) handles system event fan-out (routing
+"Agent Completed", "Human Approval Required" to multiple consumers). Do not use SQS to
+broadcast events to multiple services — use EventBridge for that. Do not use EventBridge
+for task work items that need reliable single-consumer processing — use SQS for that.
+
+**FIFO queue purpose**: The FIFO queue is for HITL approval ordering and multi-agent
+sequential messaging where order and exactly-once delivery matter. It is not for
+high-throughput task dispatch (use the standard queue for that — FIFO has lower throughput
+limits and adds cost).
 
 ---
 
