@@ -174,7 +174,7 @@ locals {
               cors_origin = {
                 description             = "Comma-separated allowed CORS origins for the API Lambda (CORS_ORIGIN)"
                 recovery_window_in_days = 7
-                version_exists          = false
+                version_exists          = true
               }
             }
           }
