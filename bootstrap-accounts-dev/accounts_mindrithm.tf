@@ -214,6 +214,7 @@ locals {
                   methods         = ["ANY"]
                   integration_key = "forge-core-api"
                   authorizer_key  = "token"
+                  preflight_mode  = "lambda_proxy"
                 }
                 auth_proxy = {
                   path_part       = "auth"

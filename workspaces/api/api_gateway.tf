@@ -29,6 +29,7 @@ module "api_gateway" {
       integration_key = rv.integration_key
       authorizer_key  = try(rv.authorizer_key, null)
       proxy_child     = try(rv.proxy_child, false)
+      preflight_mode  = try(rv.preflight_mode, "mock")
     }
   }
 

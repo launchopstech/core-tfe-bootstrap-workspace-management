@@ -62,6 +62,14 @@ resource "terraform_data" "api_config_validation" {
     }
 
     precondition {
+      condition = !local.gateway_enabled || alltrue([
+        for _, route in try(local.gw.routes, {}) :
+        contains(["mock", "lambda_proxy"], try(route.preflight_mode, "mock"))
+      ])
+      error_message = "gateway.routes.<key>.preflight_mode must be either \"mock\" or \"lambda_proxy\"."
+    }
+
+    precondition {
       condition     = local.gateway_enabled || length(local.custom_domains) == 0
       error_message = "gateway.custom_domains can only be used when gateway.enabled = true."
     }

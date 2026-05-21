@@ -73,12 +73,30 @@ resource "aws_api_gateway_deployment" "this" {
           request_templates = v.request_templates
         }
       }
+      options_lambda_proxy_integrations = {
+        for k, v in aws_api_gateway_integration.options_lambda_proxy : k => {
+          resource_id             = v.resource_id
+          http_method             = v.http_method
+          type                    = v.type
+          integration_http_method = v.integration_http_method
+          uri                     = v.uri
+        }
+      }
       child_options_integrations = {
         for k, v in aws_api_gateway_integration.child_proxy_options : k => {
           resource_id       = v.resource_id
           http_method       = v.http_method
           type              = v.type
           request_templates = v.request_templates
+        }
+      }
+      child_options_lambda_proxy_integrations = {
+        for k, v in aws_api_gateway_integration.child_proxy_options_lambda_proxy : k => {
+          resource_id             = v.resource_id
+          http_method             = v.http_method
+          type                    = v.type
+          integration_http_method = v.integration_http_method
+          uri                     = v.uri
         }
       }
       authorizers = {
@@ -154,8 +172,10 @@ resource "aws_api_gateway_deployment" "this" {
     aws_api_gateway_method.child_proxy_options,
     aws_api_gateway_integration.this,
     aws_api_gateway_integration.options,
+    aws_api_gateway_integration.options_lambda_proxy,
     aws_api_gateway_integration.child_proxy,
     aws_api_gateway_integration.child_proxy_options,
+    aws_api_gateway_integration.child_proxy_options_lambda_proxy,
     aws_api_gateway_method_response.options_200,
     aws_api_gateway_method_response.child_proxy_options_200,
     aws_api_gateway_integration_response.options_200,

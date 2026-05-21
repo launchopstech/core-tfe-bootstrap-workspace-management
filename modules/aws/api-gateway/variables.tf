@@ -76,14 +76,23 @@ variable "integrations" {
 }
 
 variable "routes" {
-  description = "Map of API routes. Each route creates a resource, methods, and integrations. Set proxy_child = true to also create a {proxy+} child resource under this route's resource, enabling sub-path routing (e.g. /auth/{proxy+})."
+  description = "Map of API routes. Each route creates a resource, methods, and integrations. Set proxy_child = true to also create a {proxy+} child resource under this route's resource, enabling sub-path routing (e.g. /auth/{proxy+}). preflight_mode defaults to mock for static API Gateway OPTIONS responses; set lambda_proxy when the integration Lambda must decide CORS dynamically."
   type = map(object({
     path_part       = string
     methods         = list(string)
     integration_key = string
     authorizer_key  = optional(string, null)
     proxy_child     = optional(bool, false)
+    preflight_mode  = optional(string, "mock")
   }))
+
+  validation {
+    condition = alltrue([
+      for _, route in var.routes :
+      contains(["mock", "lambda_proxy"], route.preflight_mode)
+    ])
+    error_message = "routes.<key>.preflight_mode must be either \"mock\" or \"lambda_proxy\"."
+  }
 }
 
 variable "cors" {

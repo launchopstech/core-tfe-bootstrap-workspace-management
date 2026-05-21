@@ -32,6 +32,22 @@ locals {
     for rk, route in var.routes : rk => route if try(route.proxy_child, false)
   }
 
+  mock_preflight_routes = {
+    for rk, route in var.routes : rk => route if route.preflight_mode == "mock"
+  }
+
+  lambda_preflight_routes = {
+    for rk, route in var.routes : rk => route if route.preflight_mode == "lambda_proxy"
+  }
+
+  mock_child_preflight_routes = {
+    for rk, route in local.proxy_child_routes : rk => route if route.preflight_mode == "mock"
+  }
+
+  lambda_child_preflight_routes = {
+    for rk, route in local.proxy_child_routes : rk => route if route.preflight_mode == "lambda_proxy"
+  }
+
   # Flatten proxy_child routes × methods (keyed with "child-" prefix — new resources, no collision)
   child_proxy_methods = merge([
     for rk, route in local.proxy_child_routes : {
