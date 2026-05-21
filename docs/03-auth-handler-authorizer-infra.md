@@ -183,6 +183,14 @@ Add the **authorizer Lambda** to the existing `api_config_json` and wire it into
 }
 ```
 
+For routes that need application-owned CORS decisions, such as public widgets
+whose allowed origins live in database-backed channel config, set
+`preflight_mode` to `lambda_proxy` on that route. If omitted, the route keeps
+the default `mock` behavior: API Gateway answers `OPTIONS` with the static
+`gateway.cors` response. Lambda-backed preflight still uses
+`authorization = "NONE"` for `OPTIONS`; real requests continue through the
+normal authorizer, share-token, and route-level origin checks.
+
 **Addition to `lambdas`:**
 ```json
 {

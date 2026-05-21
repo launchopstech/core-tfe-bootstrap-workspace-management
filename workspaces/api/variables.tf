@@ -116,7 +116,7 @@ variable "api_config_json" {
           "token": { "lambda_key": "authorizer" }
         },
         "routes": {
-          "proxy":   { "path_part": "{proxy+}", "methods": ["ANY"], "integration_key": "crud",    "authorizer_key": "token" },
+          "proxy":   { "path_part": "{proxy+}", "methods": ["ANY"], "integration_key": "crud",    "authorizer_key": "token", "preflight_mode": "lambda_proxy" },
           "presign": { "path_part": "presign",  "methods": ["ANY"], "integration_key": "presign", "authorizer_key": "token" }
         }
       },
@@ -128,6 +128,31 @@ variable "api_config_json" {
       "artifacts": { "bucket": "my-api-code", "key_prefix": "api", "version": "v1.2.3", "create_bucket": false, "upload_seed_code": false },
       "database":  { "proxy_enabled": true, "iam_username": "app" },
       "uploads":   { "enabled": true }
+    }
+
+    Route preflight_mode is optional. Omit it, or set "mock", to keep the
+    original API Gateway MOCK OPTIONS response backed by gateway.cors. Set
+    "lambda_proxy" when the route's Lambda must evaluate CORS dynamically,
+    such as public widget/client origins stored in application data. Only
+    "mock" and "lambda_proxy" are valid.
+
+    Example account .tf.json route config:
+    {
+      "routes": {
+        "proxy": {
+          "path_part": "{proxy+}",
+          "methods": ["ANY"],
+          "integration_key": "crud",
+          "authorizer_key": "token",
+          "preflight_mode": "lambda_proxy"
+        },
+        "auth_proxy": {
+          "path_part": "auth",
+          "methods": ["ANY"],
+          "integration_key": "auth-handler",
+          "proxy_child": true
+        }
+      }
     }
 
     When artifacts.create_bucket = true, this workspace creates the configured

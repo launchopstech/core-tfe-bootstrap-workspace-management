@@ -8,7 +8,7 @@ resource "aws_api_gateway_method" "options" {
 }
 
 resource "aws_api_gateway_integration" "options" {
-  for_each = var.routes
+  for_each = local.mock_preflight_routes
 
   rest_api_id = aws_api_gateway_rest_api.this.id
   resource_id = aws_api_gateway_resource.this[each.key].id
@@ -20,8 +20,19 @@ resource "aws_api_gateway_integration" "options" {
   }
 }
 
+resource "aws_api_gateway_integration" "options_lambda_proxy" {
+  for_each = local.lambda_preflight_routes
+
+  rest_api_id             = aws_api_gateway_rest_api.this.id
+  resource_id             = aws_api_gateway_resource.this[each.key].id
+  http_method             = aws_api_gateway_method.options[each.key].http_method
+  type                    = "AWS_PROXY"
+  integration_http_method = "POST"
+  uri                     = var.integrations[each.value.integration_key].lambda_invoke_arn
+}
+
 resource "aws_api_gateway_method_response" "options_200" {
-  for_each = var.routes
+  for_each = local.mock_preflight_routes
 
   rest_api_id = aws_api_gateway_rest_api.this.id
   resource_id = aws_api_gateway_resource.this[each.key].id
@@ -36,7 +47,7 @@ resource "aws_api_gateway_method_response" "options_200" {
 }
 
 resource "aws_api_gateway_integration_response" "options_200" {
-  for_each = var.routes
+  for_each = local.mock_preflight_routes
 
   rest_api_id = aws_api_gateway_rest_api.this.id
   resource_id = aws_api_gateway_resource.this[each.key].id
@@ -44,6 +55,8 @@ resource "aws_api_gateway_integration_response" "options_200" {
   status_code = aws_api_gateway_method_response.options_200[each.key].status_code
 
   response_parameters = local.cors_response_parameters
+
+  depends_on = [aws_api_gateway_integration.options]
 }
 
 # ── CORS headers on API Gateway error responses (authorizer 401/403, etc.) ──────
@@ -105,7 +118,7 @@ resource "aws_api_gateway_method" "child_proxy_options" {
 }
 
 resource "aws_api_gateway_integration" "child_proxy_options" {
-  for_each = local.proxy_child_routes
+  for_each = local.mock_child_preflight_routes
 
   rest_api_id = aws_api_gateway_rest_api.this.id
   resource_id = aws_api_gateway_resource.child_proxy[each.key].id
@@ -117,8 +130,19 @@ resource "aws_api_gateway_integration" "child_proxy_options" {
   }
 }
 
+resource "aws_api_gateway_integration" "child_proxy_options_lambda_proxy" {
+  for_each = local.lambda_child_preflight_routes
+
+  rest_api_id             = aws_api_gateway_rest_api.this.id
+  resource_id             = aws_api_gateway_resource.child_proxy[each.key].id
+  http_method             = aws_api_gateway_method.child_proxy_options[each.key].http_method
+  type                    = "AWS_PROXY"
+  integration_http_method = "POST"
+  uri                     = var.integrations[each.value.integration_key].lambda_invoke_arn
+}
+
 resource "aws_api_gateway_method_response" "child_proxy_options_200" {
-  for_each = local.proxy_child_routes
+  for_each = local.mock_child_preflight_routes
 
   rest_api_id = aws_api_gateway_rest_api.this.id
   resource_id = aws_api_gateway_resource.child_proxy[each.key].id
@@ -133,7 +157,7 @@ resource "aws_api_gateway_method_response" "child_proxy_options_200" {
 }
 
 resource "aws_api_gateway_integration_response" "child_proxy_options_200" {
-  for_each = local.proxy_child_routes
+  for_each = local.mock_child_preflight_routes
 
   rest_api_id = aws_api_gateway_rest_api.this.id
   resource_id = aws_api_gateway_resource.child_proxy[each.key].id
@@ -141,4 +165,6 @@ resource "aws_api_gateway_integration_response" "child_proxy_options_200" {
   status_code = aws_api_gateway_method_response.child_proxy_options_200[each.key].status_code
 
   response_parameters = local.cors_response_parameters
+
+  depends_on = [aws_api_gateway_integration.child_proxy_options]
 }
