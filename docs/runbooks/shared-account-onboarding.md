@@ -211,3 +211,4 @@ Fix: added `depends_on = [aws_s3_bucket_policy.logs]` to `aws_cloudtrail.main` i
 | `modules/aws/secure-baseline/main.tf` | Secure-baseline resources (singletons + CloudTrail fix) |
 | `modules/aws/secure-baseline/variables.tf` | All `enable_*` flags with singleton documentation |
 | `bootstrap-accounts-dev/accounts_mindrithm.tf` | Reference example of a shared-account client entry |
+| `../../../docs/runbooks/new-tenant-setup.md` | Cross-repo tenant identity, frontend auth, API allowlist, DNS, and verification checklist |
